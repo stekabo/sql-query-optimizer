@@ -1,0 +1,51 @@
+{
+  "tables": [
+    {
+      "name": "Students",
+      "attributes": [
+        { "name": "id",         "type": "int",        "is_unique": true,  "n_distinct": 10000 },
+        { "name": "name",       "type": "varchar(50)", "is_unique": false, "n_distinct": 9500  },
+        { "name": "dept_id",    "type": "int",        "is_unique": false, "n_distinct": 20    },
+        { "name": "gpa",        "type": "float",      "is_unique": false, "n_distinct": 400   }
+      ],
+      "n_rows": 10000,
+      "n_blocks": 200,
+      "rows_per_block": 50,
+      "indexes": [
+        { "attributes": ["id"],      "type": "btree", "is_clustering": true,  "height": 3 },
+        { "attributes": ["dept_id"], "type": "hash",  "is_clustering": false, "height": null }
+      ]
+    },
+    {
+      "name": "Courses",
+      "attributes": [
+        { "name": "id",         "type": "int",        "is_unique": true,  "n_distinct": 500  },
+        { "name": "title",      "type": "varchar(80)", "is_unique": false, "n_distinct": 498  },
+        { "name": "dept_id",    "type": "int",        "is_unique": false, "n_distinct": 20   },
+        { "name": "credits",    "type": "int",        "is_unique": false, "n_distinct": 4    }
+      ],
+      "n_rows": 500,
+      "n_blocks": 20,
+      "rows_per_block": 25,
+      "indexes": [
+        { "attributes": ["id"],   "type": "btree", "is_clustering": true,  "height": 2 }
+      ]
+    },
+    {
+      "name": "Enrollments",
+      "attributes": [
+        { "name": "student_id", "type": "int", "is_unique": false, "n_distinct": 10000 },
+        { "name": "course_id",  "type": "int", "is_unique": false, "n_distinct": 500   },
+        { "name": "grade",      "type": "varchar(2)", "is_unique": false, "n_distinct": 6 },
+        { "name": "semester",   "type": "varchar(10)", "is_unique": false, "n_distinct": 8 }
+      ],
+      "n_rows": 50000,
+      "n_blocks": 1000,
+      "rows_per_block": 50,
+      "indexes": [
+        { "attributes": ["student_id"], "type": "btree", "is_clustering": false, "height": 4 },
+        { "attributes": ["course_id"],  "type": "btree", "is_clustering": false, "height": 3 }
+      ]
+    }
+  ]
+}
