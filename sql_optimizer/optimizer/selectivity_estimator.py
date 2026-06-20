@@ -5,6 +5,7 @@ Assumes uniform value distribution (no histograms).
 All estimates return (n_rows, n_blocks).
 """
 import math
+from typing import Optional
 
 
 def estimate_equality_selection(
@@ -23,11 +24,18 @@ def estimate_equality_selection(
     return est_rows, est_blocks
 
 
-def estimate_range_selection(n_rows: int, n_blocks: int) -> tuple[int, int]:
+def estimate_range_selection(
+    n_rows: int, n_blocks: int, n_distinct: Optional[int] = None
+) -> tuple[int, int]:
     """
-    Range predicate selectivity: assume 1/3 of rows match (no histogram).
+    Range predicate selectivity.
+    If n_distinct is known: use 1/V(A,r).
+    Otherwise: default c = nr/2 (BP2-6 slide 25).
     """
-    est_rows = max(1, n_rows // 3)
+    if n_distinct and n_distinct > 0:
+        est_rows = max(1, n_rows // n_distinct)
+    else:
+        est_rows = max(1, n_rows // 2)
     blocking_factor = max(1, n_rows // n_blocks) if n_blocks > 0 else 1
     est_blocks = max(1, math.ceil(est_rows / blocking_factor))
     return est_rows, est_blocks

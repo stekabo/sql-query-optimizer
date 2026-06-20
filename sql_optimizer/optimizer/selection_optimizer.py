@@ -61,14 +61,15 @@ def _equality_plan(table: Table, condition: Condition) -> SelectionPlan:
 
     if btree_clustering:
         h = btree_clustering[0].height or 3
-        cost = ce.cost_btree_equality_clustering(h)
+        cost = ce.cost_btree_equality_clustering(h, est_blocks)
         return SelectionPlan(str(condition), "B+ Tree (clustering) equality seek",
                              cost, attr, est_rows, est_blocks)
 
     if hash_indexes:
-        cost = ce.cost_hash_equality()
-        return SelectionPlan(str(condition), "Hash index equality lookup",
-                             cost, attr, est_rows, est_blocks)
+        is_clust = hash_indexes[0].is_clustering
+        cost = ce.cost_hash_equality(is_clustering=is_clust, n_matching=est_rows)
+        algo = "Hash index equality lookup" if is_clust else "Hash index equality lookup (non-clustering)"
+        return SelectionPlan(str(condition), algo, cost, attr, est_rows, est_blocks)
 
     if btree_nonclustering:
         h = btree_nonclustering[0].height or 3
@@ -87,7 +88,9 @@ def _equality_plan(table: Table, condition: Condition) -> SelectionPlan:
 
 def _range_plan(table: Table, condition: Condition) -> SelectionPlan:
     attr = _attr_name(condition.left)
-    est_rows, est_blocks = se.estimate_range_selection(table.n_rows, table.n_blocks)
+    attribute = table.get_attribute(attr)
+    n_distinct = attribute.n_distinct if attribute else None
+    est_rows, est_blocks = se.estimate_range_selection(table.n_rows, table.n_blocks, n_distinct)
 
     indexes = table.get_indexes_for(attr)
     btree = [i for i in indexes if i.index_type == IndexType.BTREE]
@@ -96,10 +99,11 @@ def _range_plan(table: Table, condition: Condition) -> SelectionPlan:
         idx = btree[0]
         h = idx.height or 3
         if idx.is_clustering:
-            cost = ce.cost_btree_range_clustering(h, table.n_blocks)
+            # Cost = h (tree traversal) + estimated matching blocks (not br/2)
+            cost = h + est_blocks
             algo = "B+ Tree (clustering) range scan"
         else:
-            cost = ce.cost_btree_range_nonclustering(h, table.n_rows)
+            cost = ce.cost_btree_range_nonclustering(h, est_rows)
             algo = "B+ Tree (non-clustering) range scan"
         return SelectionPlan(str(condition), algo, cost, attr, est_rows, est_blocks)
 

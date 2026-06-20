@@ -1,0 +1,70 @@
+{
+  "tables": [
+    {
+      "name": "Odeljenje",
+      "attributes": [
+        { "name": "IDOde", "type": "int",          "is_unique": true,  "n_distinct": 50 },
+        { "name": "Opis",  "type": "varchar(100)",  "is_unique": false, "n_distinct": 50 }
+      ],
+      "n_rows": 50,
+      "n_blocks": 2,
+      "rows_per_block": 25,
+      "indexes": []
+    },
+    {
+      "name": "Zaposleni",
+      "attributes": [
+        { "name": "IDZap", "type": "int",        "is_unique": true,  "n_distinct": 10000 },
+        { "name": "Ime",   "type": "varchar(50)", "is_unique": false, "n_distinct": 2000  },
+        { "name": "IDOde", "type": "int",         "is_unique": false, "n_distinct": 50   }
+      ],
+      "n_rows": 10000,
+      "n_blocks": 250,
+      "rows_per_block": 40,
+      "indexes": [
+        {
+          "attributes": ["Ime"],
+          "type": "btree",
+          "is_clustering": false,
+          "height": 2
+        }
+      ]
+    },
+    {
+      "name": "Projekat",
+      "attributes": [
+        { "name": "IDPro",  "type": "int",          "is_unique": true,  "n_distinct": 200 },
+        { "name": "Naziv",  "type": "varchar(100)",  "is_unique": false, "n_distinct": 200 }
+      ],
+      "n_rows": 200,
+      "n_blocks": 8,
+      "rows_per_block": 25,
+      "indexes": []
+    },
+    {
+      "name": "Radi",
+      "attributes": [
+        { "name": "IDZap",    "type": "int", "is_unique": false, "n_distinct": 10000 },
+        { "name": "IDPro",    "type": "int", "is_unique": false, "n_distinct": 200   },
+        { "name": "Procenat", "type": "int", "is_unique": false, "n_distinct": 100   }
+      ],
+      "n_rows": 20000,
+      "n_blocks": 500,
+      "rows_per_block": 40,
+      "indexes": [
+        {
+          "attributes": ["IDZap"],
+          "type": "btree",
+          "is_clustering": false,
+          "height": 2
+        },
+        {
+          "attributes": ["IDPro"],
+          "type": "btree",
+          "is_clustering": true,
+          "height": 2
+        }
+      ]
+    }
+  ]
+}

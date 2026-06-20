@@ -37,7 +37,8 @@ def test_hash_equality():
 
 
 def test_nested_loop_join():
-    assert cost_nested_loop_join(10, 20) == 200
+    # nr=10, bs=20, br=5 → nr*bs + br = 10*20 + 5 = 205  (BP2-5 slide 18)
+    assert cost_nested_loop_join(10, 20, 5) == 205
 
 
 def test_block_nested_loop_join():
@@ -61,16 +62,16 @@ def test_merge_join_unsorted_adds_sort_cost():
 
 
 def test_external_sort_fits_in_buffer():
-    # br <= B → single pass → 2 * br
-    assert cost_external_sort(5, 10) == 10
+    # br <= B → fits in memory → read once, final writes not counted → br
+    assert cost_external_sort(5, 10) == 5
 
 
 def test_external_sort_multiple_passes():
-    # br=100, B=10 → runs=10, passes=ceil(log_9(10))=2 → 2*100*(1+2)=600
+    # br=100, B=10 → runs=10, passes=ceil(log_9(10))=2 → br*(2*passes+1)=100*5=500
     result = cost_external_sort(100, 10)
     n_runs = math.ceil(100 / 10)
     passes = math.ceil(math.log(n_runs, 9))
-    assert result == 2 * 100 * (1 + passes)
+    assert result == 100 * (2 * passes + 1)
 
 
 def test_projection():

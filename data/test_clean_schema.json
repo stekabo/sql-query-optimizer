@@ -1,0 +1,35 @@
+{
+  "tables": [
+    {
+      "name": "T1",
+      "attributes": [
+        { "name": "id",    "type": "int", "is_unique": true,  "n_distinct": 100 },
+        { "name": "cat",   "type": "int", "is_unique": false, "n_distinct": 10  },
+        { "name": "score", "type": "int", "is_unique": false, "n_distinct": 5   }
+      ],
+      "n_rows": 100,
+      "n_blocks": 10,
+      "rows_per_block": 10,
+      "indexes": [
+        { "attributes": ["id"],    "type": "btree", "is_clustering": true,  "height": 2 },
+        { "attributes": ["cat"],   "type": "btree", "is_clustering": false, "height": 2 },
+        { "attributes": ["score"], "type": "hash",  "is_clustering": false, "height": null }
+      ]
+    },
+    {
+      "name": "T2",
+      "attributes": [
+        { "name": "id",    "type": "int", "is_unique": true,  "n_distinct": 1000 },
+        { "name": "t1_id", "type": "int", "is_unique": false, "n_distinct": 100  },
+        { "name": "val",   "type": "int", "is_unique": false, "n_distinct": 10   }
+      ],
+      "n_rows": 1000,
+      "n_blocks": 100,
+      "rows_per_block": 10,
+      "indexes": [
+        { "attributes": ["id"],    "type": "btree", "is_clustering": true,  "height": 2 },
+        { "attributes": ["t1_id"], "type": "btree", "is_clustering": false, "height": 2 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "1 tabela — selekcija po B+ indeksu",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--schema", "data/example_schema.json",
+                "--buffer", "10",
+                "--query", "SELECT Students.name, Students.gpa FROM Students WHERE Students.id = 42"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "1 tabela — selekcija po hash indeksu + range",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--schema", "data/example_schema.json",
+                "--buffer", "10",
+                "--query", "SELECT Students.name FROM Students WHERE Students.dept_id = 5 AND Students.gpa > 3.5"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "2 tabele — join s aliasom",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--schema", "data/example_schema.json",
+                "--buffer", "10",
+                "--query", "SELECT s.name, e.grade FROM Students s, Enrollments e WHERE s.id = e.student_id AND s.dept_id = 3"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "3 tabele — greedy join ordering",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--schema", "data/example_schema.json",
+                "--buffer", "10",
+                "--query", "SELECT s.name, c.title, e.grade FROM Students s, Enrollments e, Courses c WHERE s.id = e.student_id AND e.course_id = c.id AND s.dept_id = 5"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "3 tabele — ORDER BY (external sort)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--schema", "data/example_schema.json",
+                "--buffer", "5",
+                "--query", "SELECT s.name, c.title FROM Students s, Enrollments e, Courses c WHERE s.id = e.student_id AND e.course_id = c.id ORDER BY s.name"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Mali buffer (B=3) — test BNL vs NL",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--schema", "data/example_schema.json",
+                "--buffer", "3",
+                "--query", "SELECT s.name, e.grade FROM Students s, Enrollments e WHERE s.id = e.student_id"
+            ],
+            "console": "integratedTerminal"
+        }
+        ,
+        {
+            "name": "K2-2023a — Radi + Zaposleni (hash Ime, B+ clustered Procenat, range)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--schema", "data/zadatak_schema.json",
+                "--buffer", "30",
+                "--query", "SELECT R.Procenat, R.IDPro, Z.Ime FROM Radi R, Zaposleni Z WHERE Z.IDZap = R.IDZap AND R.Procenat > 99 AND Z.Ime = 'Ivan' ORDER BY R.Procenat"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "K2-2023b — Radi + Zaposleni (B+ unclustered Ime, B+ clustered IDPro)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--schema", "data/k2_2023b_schema.json",
+                "--buffer", "30",
+                "--query", "SELECT R.Procenat, R.IDPro, Z.Ime FROM Radi R, Zaposleni Z WHERE Z.IDZap = R.IDZap AND Z.Ime = 'Nenad' AND R.IDPro = 5001 ORDER BY R.Procenat"
+            ],
+            "console": "integratedTerminal"
+        }
+        ,
+        {
+            "name": "TEST 1 — B+ clustering equality  [ocekivano: h+est_blocks = 2+1 = 3]",
+            "type": "debugpy", "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": ["--schema", "data/test_clean_schema.json", "--buffer", "10",
+                     "--query", "SELECT T1.cat FROM T1 WHERE T1.id = 42"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "TEST 2 — B+ non-clustering equality  [ocekivano: h+n_match = 2+10 = 12]",
+            "type": "debugpy", "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": ["--schema", "data/test_clean_schema.json", "--buffer", "10",
+                     "--query", "SELECT T1.score FROM T1 WHERE T1.cat = 3"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "TEST 3 — Hash non-clustering equality  [ocekivano: 1+n_match = 1+20 = 21]",
+            "type": "debugpy", "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": ["--schema", "data/test_clean_schema.json", "--buffer", "10",
+                     "--query", "SELECT T1.cat FROM T1 WHERE T1.score = 2"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "TEST 4 — B+ non-clustering range  [ocekivano: h+est_rows = 2+10 = 12]",
+            "type": "debugpy", "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": ["--schema", "data/test_clean_schema.json", "--buffer", "10",
+                     "--query", "SELECT T1.score FROM T1 WHERE T1.cat > 7"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "TEST 5 — Join (sel+BNL)  [ocekivano: sel=12, BNL=1+ceil(1/8)*100=101, ukupno=113]",
+            "type": "debugpy", "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": ["--schema", "data/test_clean_schema.json", "--buffer", "10",
+                     "--query", "SELECT T1.cat, T2.val FROM T1, T2 WHERE T1.id = T2.t1_id AND T1.cat = 3"],
+            "console": "integratedTerminal"
+        }
+    ]
+}

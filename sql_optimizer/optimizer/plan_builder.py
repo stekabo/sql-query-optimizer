@@ -52,8 +52,23 @@ def build_plan(query: ParsedQuery, schema: Schema, buffer_size: int) -> Evaluati
     join_conditions = query.join_conditions()
     current_result: Optional[IntermediateResult] = None
 
+    in_memory = False
     if len(tables) == 1:
         current_result = intermediates[0]
+    elif _fits_in_memory(intermediates, buffer_size):
+        # All selected relations fit in the buffer — join and sort are free
+        total_blocks = sum(i.n_blocks for i in intermediates)
+        plan.steps.append(OperationStep(
+            description=f"Join: {' JOIN '.join(i.label for i in intermediates)}",
+            algorithm="In-memory join (all relations fit in buffer)",
+            cost=0,
+            details=(
+                f"Total blocks after selection: {total_blocks} <= B={buffer_size}. "
+                "All relations loaded into memory — no additional I/O needed."
+            ),
+        ))
+        in_memory = True
+        current_result = _merge_intermediates(intermediates, join_conditions, schema, buffer_size)
     else:
         join_order: JoinOrder = greedy_join_order(
             tables=tables,
@@ -81,10 +96,11 @@ def build_plan(query: ParsedQuery, schema: Schema, buffer_size: int) -> Evaluati
 
     # ── 3. Projection ─────────────────────────────────────────────────────────
     if query.select != ["*"]:
-        proj_cost = ce.cost_projection(current_result.n_blocks)
+        proj_cost = 0 if in_memory else ce.cost_projection(current_result.n_blocks)
+        proj_algo = "Column elimination (in-memory, no I/O)" if in_memory else "Column elimination (no duplicate removal)"
         plan.steps.append(OperationStep(
             description=f"Projection: {', '.join(query.select)}",
-            algorithm="Column elimination (no duplicate removal)",
+            algorithm=proj_algo,
             cost=proj_cost,
             details=f"Reads {current_result.n_blocks} blocks, eliminates unreferenced columns.",
         ))
@@ -101,7 +117,14 @@ def build_plan(query: ParsedQuery, schema: Schema, buffer_size: int) -> Evaluati
                     index_provides_order = True
                     break
 
-        if index_provides_order:
+        if in_memory:
+            plan.steps.append(OperationStep(
+                description=f"ORDER BY {query.order_by}",
+                algorithm="In-memory sort (all data already in buffer)",
+                cost=0,
+                details="All data fits in buffer — sort requires no disk I/O.",
+            ))
+        elif index_provides_order:
             plan.steps.append(OperationStep(
                 description=f"ORDER BY {query.order_by}",
                 algorithm="Clustering index provides sorted order — no sort needed",
@@ -166,10 +189,55 @@ def _selection_details(sp: SelectionPlan, table: Table) -> str:
 def _join_details(jp: JoinPlan, buffer_size: int) -> str:
     idx_info = f", index on '{jp.index_used}'" if jp.index_used else ""
     return (
-        f"Left: {jp.left_label} ({jp.result.n_blocks} blk est.), "
-        f"Right: {jp.right_label}{idx_info}, B={buffer_size}. "
+        f"Left: {jp.left_label} ({jp.left_n_blocks} blk), "
+        f"Right: {jp.right_label} ({jp.right_n_blocks} blk){idx_info}, B={buffer_size}. "
         f"Estimated output: ~{jp.result.n_rows} rows, ~{jp.result.n_blocks} blocks."
     )
+
+
+def _fits_in_memory(intermediates: list[IntermediateResult], buffer_size: int) -> bool:
+    """True if all intermediate results together fit in the buffer (leaving 2 blocks for I/O)."""
+    return sum(i.n_blocks for i in intermediates) <= buffer_size - 2
+
+
+def _merge_intermediates(
+    intermediates: list[IntermediateResult],
+    join_conditions: list[Condition],
+    schema: Schema,
+    buffer_size: int,
+) -> IntermediateResult:
+    """Estimate the result of joining all intermediates (for in-memory case)."""
+    result = intermediates[0]
+    for other in intermediates[1:]:
+        cond = _find_join_conditions_for_step(
+            type("JP", (), {"left_label": result.label, "right_label": other.label})(),
+            join_conditions
+        )
+        from sql_optimizer.optimizer import selectivity_estimator as se
+        if cond:
+            left_attr  = cond[0].left.split(".")[-1]
+            right_attr = cond[0].right.split(".")[-1]
+            v_left  = next((a.n_distinct for t in schema.tables for a in t.attributes if a.name.lower() == left_attr.lower()), result.n_rows)
+            v_right = next((a.n_distinct for t in schema.tables for a in t.attributes if a.name.lower() == right_attr.lower()), other.n_rows)
+            est_rows, est_blocks = se.estimate_join(
+                result.n_rows, result.n_blocks,
+                other.n_rows, other.n_blocks,
+                v_left, v_right,
+                result.row_size, other.row_size,
+            )
+        else:
+            est_rows, est_blocks = se.estimate_cross_product(
+                result.n_rows, other.n_rows, result.row_size, other.row_size
+            )
+        result = IntermediateResult(
+            label=f"({result.label} JOIN {other.label})",
+            n_rows=est_rows,
+            n_blocks=est_blocks,
+            attributes=result.attributes + other.attributes,
+            row_size=result.row_size + other.row_size,
+            buffer_size=buffer_size,
+        )
+    return result
 
 
 def _format_query(q: ParsedQuery) -> str:

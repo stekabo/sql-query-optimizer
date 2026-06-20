@@ -19,6 +19,8 @@ class JoinPlan:
     cost: int
     index_used: Optional[str]
     result: IntermediateResult        # estimated output statistics
+    left_n_blocks: int = 0            # input block count for display
+    right_n_blocks: int = 0           # input block count for display
 
 
 @dataclass
@@ -41,7 +43,7 @@ def best_join_plan(
     candidates: list[JoinPlan] = []
 
     # ── NL join ──────────────────────────────────────────────────────────────
-    nl_cost = ce.cost_nested_loop_join(left.n_blocks, right.n_blocks)
+    nl_cost = ce.cost_nested_loop_join(left.n_rows, right.n_blocks, left.n_blocks)
     candidates.append(_make_plan(left, right, "Nested Loop Join", nl_cost, None, join_condition, schema, buffer_size))
 
     # ── Block NL join ─────────────────────────────────────────────────────────
@@ -50,6 +52,7 @@ def best_join_plan(
 
     # ── Indexed NL join ───────────────────────────────────────────────────────
     if join_condition:
+        # Try right as inner
         inner_table, inner_attr = _find_inner_table_and_attr(right.label, join_condition, schema)
         if inner_table and inner_attr:
             indexes = inner_table.get_indexes_for(inner_attr)
@@ -62,6 +65,21 @@ def best_join_plan(
                 candidates.append(_make_plan(
                     left, right, "Index Nested Loop Join", inl_cost,
                     f"{inner_table.name}.{inner_attr}", join_condition, schema, buffer_size
+                ))
+
+        # Try left as inner (reversed — outer=right, inner=left)
+        inner_table_rev, inner_attr_rev = _find_inner_table_and_attr(left.label, join_condition, schema)
+        if inner_table_rev and inner_attr_rev:
+            indexes_rev = inner_table_rev.get_indexes_for(inner_attr_rev)
+            if indexes_rev:
+                idx_rev = _best_index(indexes_rev)
+                inl_cost_rev = ce.cost_index_nested_loop_join(
+                    right.n_blocks, right.n_rows, idx_rev,
+                    inner_table_rev.n_rows, inner_table_rev.n_blocks
+                )
+                candidates.append(_make_plan(
+                    right, left, "Index Nested Loop Join (reversed)", inl_cost_rev,
+                    f"{inner_table_rev.name}.{inner_attr_rev}", join_condition, schema, buffer_size
                 ))
 
     # ── Merge join ────────────────────────────────────────────────────────────
@@ -140,6 +158,8 @@ def _make_plan(
         cost=cost,
         index_used=index_used,
         result=result,
+        left_n_blocks=left.n_blocks,
+        right_n_blocks=right.n_blocks,
     )
 
 
@@ -182,8 +202,8 @@ def _find_join_condition(
     left_label: str, right_label: str, conditions: list[Condition]
 ) -> Optional[Condition]:
     """Find a join condition that connects the two relations."""
-    left_tables  = {t.lower().strip("()") for t in left_label.replace("JOIN", ",").split(",") if t.strip()}
-    right_tables = {t.lower().strip("()") for t in right_label.replace("JOIN", ",").split(",") if t.strip()}
+    left_tables  = {t.lower().strip("() ") for t in left_label.replace("JOIN", ",").split(",") if t.strip()}
+    right_tables = {t.lower().strip("() ") for t in right_label.replace("JOIN", ",").split(",") if t.strip()}
 
     for c in conditions:
         l_tbl = _table_name(c.left).lower()
@@ -198,7 +218,7 @@ def _find_inner_table_and_attr(
     right_label: str, condition: Condition, schema: Schema
 ) -> tuple[Optional[Table], Optional[str]]:
     """Find which side of the condition is on the inner (right) relation."""
-    right_tables = {t.lower().strip() for t in right_label.replace("JOIN", ",").split(",") if t.strip()}
+    right_tables = {t.lower().strip("() ") for t in right_label.replace("JOIN", ",").split(",") if t.strip()}
 
     for ref, other_ref in [(condition.left, condition.right), (condition.right, condition.left)]:
         tbl = _table_name(ref).lower()
