@@ -1,0 +1,100 @@
+OptimizacijaupitaBazepodataka2
+drMiloš CVETANOVIĆ
+2
+Optimizacija upita•Više načina za evaluaciju upita–Ekvivalentni iskazi–Različiti algoritmi za svaku od operacija
+
+3
+Optimizacija upita•Plan evaluacije definiše tačno koji algoritam se koristi za koju operaciju,kao i kako se koordinišu operacije. 
+•Prikaz plana evaluacije / izvršavanja na DBMS –tekstualni ili grafičkiNpr. Oracle: explainplan for<query> by select * from table (dbms.xplan.display)SQL server: set showplan_textonPostgreSQL: explain analysis <query>   --prikazujecenuza prvired iza sveredove
+
+4
+Optimizacija upita•Razlike u ceni između pojedinih planova evaluacije moju biti velike–Npr. U nekim slučajevima sekunde naspram dana•Koraci u optimizaciji zasnovanoj na ceni1. Generisanje logički ekvivalentnih iskaza koristeći pravila ekvivalencije2. Anotiranje odabranog iskaza kako bi se došlo do alternativnih planova3. Odabir najjeftinijeg plana na osnovu procene cene•Procena cene plana zasnovana na:–Statističkim informacijama o relacijama(npr. broj redova, broj različitih vrednosti za neke od atributa)–Statističkih procena za među-rezultate, kako bi se sračunala cena kompleksnih iskaza–Upotreba formula sa cenama za algoritme, izračunate koristeći statistike
+5
+Transformacija iskaza relacione algebre•Dvaiskazarelacionealgebresuekvivalentnaakogenerišuisti skup redovaza svaku legalnu instancu baze (instancu koja ne narušava nijedno ograničenje)–Redosled redova nije bitan–Nije važno ako generišu različit rezultat na bazama koji narušavaju neko od ograničenja•Kod SQL ulaz i izlaz su multiskupovi(multiset, bag sementacs) redova–Operacije relacione algebre treba modifikovati•Pravilo ekvivalencije(equivalencerule) govori da su dve forme iskaza ekvivalentni,te se jedan može zameniti drugim, i obratno
+6
+Pravila ekvivalencije•1. Konjukcijaoperacija selekcije se može dekonstruisati u sekvencu individualnih selekcijaσq1 Ùq2 (E) ≡  σq1(σq2 (E))•2. Operacije selekcija su komutativneσq1(σq2(E))≡   σq2(σq1(E))•3. Samo poslednja u nizu operacija projekcija je potrebna, a ostale se mogu izostavitiÕL1(ÕL2(…(ÕLn(E))…))     ≡     ÕL1(E)gde je L1⊆L2… ⊆Ln•4. Selekcije mogu biti kombinovane sa Dekartovim proizvodom i teta spajanjema.         σq(E1x E2)≡    E1⨝qE2b.         σq1 (E1⨝q2E2)≡    E1⨝q1∧q2E2•5. Operacije teta spajanja (i prirodnog spajanja) su komutativneE1⨝E2≡    E2⨝E1•6.a. Operacije prirodnog spajanja su asocijativne(E1⨝E2) ⨝E3≡     E1⨝(E2⨝E3)b. Operacije teta spajanja su asocijativne u sledećem obliku(E1⨝q1E2) ⨝q2 Ùq3 E3≡    E1⨝q1 Ùq3(E2⨝q2E3)gde q2uključuje atribute samo izE2iE3
+7
+Pravila ekvivalencije
+
+8
+Pravila ekvivalencije•7.Operacija selekcije se distribuira po teta spajanju pod određena dva uslovaa. Kada svi atributi u q0uključuju samo atribute jednog od izraza (E1) kojiučestvuje u spajanjusq0 (E1 ⨝qE2)      ≡    (sq0(E1)) ⨝qE2
+b. Kada q1 uključuje samo atribute iz E1 i q2uključuje samo atribute iz E2sq1Ùq2(E1⨝qE2)     ≡(sq1(E1))⨝q(sq2(E2))•8.Operacija projekcije se distribuira po teta spajanju na sledeći načina. Ako quključuje samo atribute iz L1ÈL2ÕL1ÈL2(E1⨝qE2)     ≡     ÕL1(E1) ⨝qÕL2(E2)b. U opštem slučaju, razmatrati spajanje E1⨝qE2-NekasuL1 iL2 skupoviatributaizE1iE2, respektivno-NekasuL3 atributiizE1 koji suuključeniu uslovspajanjaq, alinisuu L1ÈL2, i-NekasuL4 atributiizE2 koji suuključeniu uslovspajanjaq, alinisuu L1ÈL2, iÕL1ÈL2(E1⨝qE2)     ≡    ÕL1ÈL2(ÕL1ÈL3(E1) ⨝qÕL2ÈL4(E2))Slična pravila ekvivalencijevaže  i za spoljna spajanja: ⟕, ⟖, i ⟗
+9
+Pravila ekvivalencije•9.Operacije unije i preseka su komutativni(razlika skupova nije)E1ÈE2     ≡   E2ÈE1 E1ÇE2     ≡   E2ÇE1•10. Unija i presek skupova su asocijativni(E1ÈE2 ) ÈE3    ≡E1È(E2ÈE3)(E1ÇE2 ) ÇE3    ≡   E1Ç(E2ÇE3)•11. Operacija selekcije se distribuira po uniji, preseku i razlicia.   sq(E1ÈE2)    ≡   sq(E1) Èsq(E2)b.   sq(E1ÇE2)    ≡sq(E1) Çsq(E2)c.   sq(E1–E2)    ≡   sq(E1) –sq(E2)d.   sq(E1ÇE2)   ≡sq(E1) ÇE2e.   sq(E1–E2)    ≡sq(E1) –E2prethodnopravilone važiza uniju•12. Operacija projekcije se distribuira po unijiPL(E1ÈE2)     ≡(PL(E1)) È(PL(E2))
+10
+Pravila ekvivalencije•13.Operacije selekcije se se distribuira po operaciji agregacijesq(G𝛾A(E))    ≡   G𝛾A(sq(E))ukoliko quključuje samo atribute iz G•14.  a. Puno spoljno spajanje je komutativnoE1⟗E2     ≡   E2⟗E1b. Levo i desno spoljno spajanje nije komutativno, aliE1⟕E2     ≡   E2⟖E1•15. Operacija selekcije se distribuira po levom i desno spoljnom spajanju, ako q1 uključuje samo atribute iz E1a.   sq1(E1⟕qE2)    ≡   (sq1(E1)) ⟕qE2b.   sq1(E1⟖qE2)    ≡    E2 ⟕q(sq1(E1)) •16. Spoljna spajanja mogu biti zamenjena unutrašnjim spajanjem pod određenim uslovimaa.   sq1(E1⟕qE2)    ≡   sq1(E1⨝qE2)b.   sq1(E1⟖qE1)    ≡    sq1(E1⨝qE2)ukolikoq1 nije(null-rejecting) po E2
+za uslovse kažeda je null-rejecting ukolikose izračunavanafalse iliunknownza svakired koji je dopunjensanull poljimaprilikomspoljnogspajanja
+11
+Pravila ekvivalencije•Primetiti da nekoliko pravila ekvivalencijekoja važe za spajanja, ne važe za spoljna spajanja–Npr.        syear=2017(instructor⟕teaches)  ≢syear=2017(instructor⨝teaches)–Spoljna spajanja nisu asocijativna(r ⟕s) ⟕t     ≢r ⟕(s ⟕t)npr. za primer relacijar(A,B) = {(1,1)},    s(B,C) = {(1,1)},  t(A,C) = { }
+12
+Pravila ekvivalencije –primer transformacije•Upit: Vraća imena svih instruktora koji su na Musicdepartmanu, kao i nazive svih kursevakoji ti instruktori predajuPname, title(sdept_name= ‘Music’(instructor ⨝(teaches ⨝Pcourse_id, title(course))))•Transformacija nakon primene pravila 7a.Pname, title((sdept_name= ‘Music’(instructor))⨝(teaches ⨝Pcourse_id, title(course)))•Sprovođenjeselekciještoranijedovodido smanjenarelacijakojese spajajuistovažiiza sprovođenjeprojekciještoranije
+13
+Pravila ekvivalencije –primer više transformacija•Upit: Vraća imena svih instruktora koji su na Musicdepartmanu koji su držali bar jedankurs u 2017. godini, kao i nazive tih kursevaPname, title(sdept_name= "Music”Ùyear= 2017(instructor ⨝(teaches ⨝Pcourse_id, title(course))))•Transformacija nakon primene pravila asocijacije 6a.Pname, title(sdept_name= “Music”Ùyear= 2017((instructor ⨝teaches)⨝Pcourse_id, title(course)))•Postojiprilikada se selekcijasprovedeštoranije, a time dobijapod izrazsdept_name= “Music”(instructor) ⨝syear = 2017(teaches)
+
+14
+Enumeracija ekvivalentnih izraza•Optimizatorupita koristi pravila ekvivalencijeda sistematično generiše izraze koji suekvivalentni datom izrazu•Može da generiše sve ekvivalentne izraze na sledeći način:Repeat-Primeni sva pravila ekvivalencijekoja se mogu primeniti na svaki pod-izrazsvakog ekvivalentnog izraza pronađenog do tog trenutka-Dodati novo generisane izraze u skup ekvivalentnih izrazaUntil(nije generisan nijedan novi izraz)•Prethodno navedeni algoritam enumeracijeje i prostorno i vremenski složen–Optimizovano generisati planove na osnovu pravila transformacije–Specijalni pristupi za upite koji sadrže samo selekciju, projekciju i spajanje 
+15
+Enumeracija ekvivalentnih izraza –pravila transformacije•Prostorna složenost se smanjuje ukoliko se koriste deljeni pod-izrazi–Kada je E1 generisan na osnovu E2 primenom nekog pravila ekvivalencije,obično je samo vršni nivo različit, dok su podstablaista i mogu biti deljananpr. nakon primene pravila komutativnosti
+–Takođe, identični pod-izrazi mogu biti generisani više putate je moguće obrisati duplikate i čuvati samo jednu kopiju•Vremenska složenost se smanjuje ukoliko se ne generišu svi mogući izrazi–Dinamičko programiranje (dynamicprogramming)npr. Specijalni slučaj dinamičkog programiranja za optimizaciju redosleda spajanja 
+
+16
+Redosled spajanja•Za sve relacije r1, r2, and r3 važipraviloasocijativnosti(r1⨝r2) ⨝r3  = r1⨝(r2⨝r3 )Ukolikoje među-rezultatspajanjar2⨝r3 veliki, a spajanjar1⨝r2mali, ondaje najboljeodabrati(r1⨝r2) ⨝r3 takoda se čuvajumanjimeđurezultati•Na primer, Pname, title(sdept_name= “Music”(instructor)⨝teaches) ⨝Pcourse_id, title(course))))možese najpreizračunati: teaches⨝Pcourse_id, title(course)a potomspojitisa: sdept_name= “Music”(instructor)međutimrezultatprvogspajanjamožebitivelikiImajućiu viduda verovatnomalibrojprofesorapredajenaMusic departmanu,boljeje najpreizračunatisdept_name= “Music”(instructor) ⨝teaches
+17
+Optimizacija po ceni•Cena svake od operacija relacione algebre (najbolje pojedinačne cene ili ukupna cena)–Npr. merge-joindobar kada treba sortiranost, ali nested-loopdobar za pipelining•Pronalaženje najboljeg redosleda spajanja za r1⨝r2 ⨝. . .⨝rn•Postoji(2(n–1))!/(n–1)! različitihredosledaspajanjaza nrelacijaza n=7, brojje 665280, dokje za n=10 to 176 milijardi. •Nema potrebe generisati sve redoslede spajanjaKoristeći dinamičko programiranje pronaći najjefitinijiredosled spajanjaza bilo koji podskup relacija {r1, r2, . . . rn} se odredijednomičuvaza budućuupotrebu•Pronalaženjenajboljegstable spajanjaza skupod nrelacija:–Razmotritisvemogućeplanoveu formi: S1⨝(S –S1)gdeje S1bilokoji neprezanpodskup od S–Rekurzivnoizračunaticenuza spajanjepodskupovaod Skakobi se odredilacenasvakogplana.Odabratinajjeftinijiod 2n-2 alternativa–Osnovnislučajza rekurziju: plan pristupaza jednurelacijuPrimenitisveselekcijenaRi koristećinajboljiizborindeksanadRi–Kadase plan za bilokoji podskup relacijaizračuna, to se čuvaiponovokoristiumestoda se ponovoizračunava(dinamičkoprogramiranje)
+18
+Redosled spajanja –optimizacija dinamičkim programiranjemprocedurefindbestplan(S)if(bestplan[S].cost ¹¥)return bestplan[S]// else bestplan[S] has not been computed earlier, compute it nowif(Scontains only 1 relation)set bestplan[S].planand bestplan[S].costbased on the best way of accessing Susing selections on Sand indices (if any) on Selse for each non-empty subset S1of S such that S1 ¹SP1= findbestplan(S1)P2= findbestplan(S-S1)for each algorithm A for joining results of P1 and P2… compute plan and cost of using A (…pogledati narednu stranu) …if cost < bestplan[S].cost bestplan[S].cost = costbestplan[S].plan = plan;returnbestplan[S]
+19
+Redosled spajanja –optimizacija dinamičkim programiranjemfor each algorithm A for joining results of P1 and P2// For indexed-nested loops join, the outer could be P1or P2// Similarly for hash-join, the build relation could beP1 orP2//We assume the alternatives are considered as separate algorithmsif algorithm Ais indexed nested loops Let Piand Podenote inner and outer inputsif Pihas a single relation riand rihas an index on the join attributeplan = “execute Po.plan; join results of Poand riusing A”, with any selection conditions on Piperformed as part ofthe join conditioncost = Po.cost+ cost of Aelsecost = ¥; /* cannot use indexed nested loops join */else plan = “execute P1.plan; execute P2.plan; join results of P1and P2using A;” cost = P1.cost+ P2.cost+ cost of A…pogledati prethodnu stranu
+20
+Levo duboko stablo spajanja (left deep join tree)•Kod levog dubokog stabla spajanja, desna strana ulaza svakog spajanja je relacija,a ne među-rezultat nekog drugog spajanja 
+
+21
+Optimizacija po ceni•Sa dinamičkim programiranjem vremenska kompleksnost sa proizvoljnim stablima je O(3n)–Za n=10, broj je 59000 umesto 176 milijardi•Prostorna kompleksnost je O(2n) •Da bi se odredilonajboljelevodubokostablospajanjaza skupod nrelacija:–Razmotritinalternativasajednomrelacijomnadesnojstrain ulazaspajanjaiostalimrelacijamanalevojstrain ulazaspajanja–Modifikovatialgoritamza optimizacijuredosledaspajanjazameniti: “else for each non-empty subset S1of S such that S1 ¹S”sa: “for each relation r in Slet S1 = S –r . “•Ako se samo leva duboka stabla spajanja razmatraju, vremenska kompleksnost zapronalaženje najboljeg redosleda spajanja je O(n 2n), dokje prostornaidaljeO(2n)•Optimizacijapo cenije skupa, alivrediza upitenadvelikomkoličinompodataka(većinaupitaimamalon, generalno< 10) •Intersantansortiraniredosled(interesting sort order) je određenisortiraniredosledredovakoji možeučinitikasnijuoperaciju(spajanje, grupisanje, uređenje) jeftinijom–Nijedovoljnonaćinajboljiredosledspajanja,većnajboljiredosledspajanjasainteresantnimsortiranimredosledom
+22
+Struktura optimizatora •Optimizacijapo cenije skupačakisadinamičkimprogramiranjem,pa se zbogtoga koristeheuristika(koječesto, aline uvek, pomažu)npr. selekcijaštopre, projekcijaštopre, štorestriktivnijaselekcijaispajanještopre…–Npr. upotrebitiheuristikeza jeftineupite,a sprovestiiscrpnuenumeracijuza skupeupite•Budžetceneoptimizacije(optimization cost budget) –zaustavitioptimizacijuranoukolikoje cenaplana manjaod ceneoptimizacije•Keširanjeplana (plan cashing) –ponovoupotrebitiprethodniodređenplan,ukolikose upitponovi, čakisarazličitimkonstantama
+23
+Statističke informacije za procenu cena •nr–brojredovarelacijer•br–brojblokovakojezauzimarelacijar•lr–veličinajednogredarelacijer•fr–faktorblokiranjarelacijer, tj. brojredovakoji stajeu jedanblok•V(A, r)–brojrazličitihvrednostikojese u relacijirjavljajuza atributA•Ukolikosuredovirelacijer sačuvanifizičkizajednou datoteci, onda!!!!"####$=rfrnrb
+24
+Histogrami •Npr. Histogram za atributgodineu relacijiosoba
+•Histogram sa podjednakim širinama (equi-width)•Histogram sa podjednakim dubinama –opseg je podeljen na pod-opsege takosvaki pod-opseg ima (približno) isti broj redova (npr. 4, 8. 14, 19)•Mnogi DBMS takođe čuvaju nnajčešćih vrednosti i njihove brojače–U tom slučaju se histogrami prave na osnovu preostalih vrednosti•Histogrami i druge statistike se obično izračunavaju na osnovu slučajnog uzorka•Statistika može da „obajati“–Potrebno je pokrenuti ponovnu analizu da bi se statistika ažurirala–Moguće je automatski održavati statistiku ažurnom (kao kada bi se koristio okidač)
+value
+frequency
+50
+40
+30
+20
+10
+1–5 6–10 11–15 16–20 21–25 
+25
+Procena veličine –selekcija•Selekcijapo uslovujednakostisA=v(r)–nr/ V(A,r) brojzapisakoji zadovoljavajuuslovselekcije–Ukolikoje uslovjednakostipo ključnomatributu: procenaveličine= 1•Selekcijapo uslovunejednakostisA£v(r) (odnosno, sA ³v(r)  je simetričanslučaj)–Nekaje cprocenjenbrojredovakoji zadovoljavajuuslov–Akosumin(A, r) imax(A, r) dostupniu kataloguc=0 akoje v < min(A, r)c= –Akosuhistogramidostupni, ondase procenamožeuraditipreciznije–U nedostatkustatističkihinformacija, pretspostavljase da je c=nr/2
+),min(),max(),min(.rArArAvnr−−
+26
+Procena veličine –kompleksna selekcija•Selektivnost(selectivity) uslovaqije verovatnoćada ćered relacijerzadovoljitiuslovqi–Akoje sibrojredovakoji zadovoljavauslov, ondaje selektivnostuslovaqidata sasi/nr
+•Konjukcija: sq1Ùq2Ù. . . Ùqn(r)procenaveličine(tj. brojaredova) je: 
+•Disjunkcija: sq1Úq2Ú. . . Úqn(r)procenaveličine(tj. brojaredova) je: 
+•Negacija: s¬q(r)procenaveličine(tj. brojaredova) je: nr–size(sq(r))
+nrnrnsssn∗∗∗∗ . . .   21!!"#$$%&−∗∗−∗−−∗)1(...)1()1(121rnrrrnsnsnsn
+27
+Procena veličine –spajanje•Dekartovproizvodr x ssadržinr・nsredova, a svakired zauzimalr+ lsbajtova•Akoje R ÇS= Æ, ondaje r⋈sistoštoir x s•Akoje R ÇS ključrelacijeR, ondaćese red relacijesspojitisanajvišejednimredomizr–Zbogtoga brojredovau r⋈snijevećiod brojaredovau relacijis•Akoje R ÇS u S jestestraniključkoji referišeR, ondaje brojredovau r⋈s tačnojednakbrojuredovau relacijis–Slučajkadaje R ÇS straniključkoji referišeS, je simetričan•AkoR ÇS= {A} nijeključniza Rniza SAkose pretpostavida svakired tu relacijirproizvodiredoveu r⋈s, ondaje brojredova
+Akoje obrnutotačno, ondaje procenabrojaredovaManjaod ova dvabrojaje verovatnotačnijaprocena•Prethodneprocenemogubitipopravljeneukolikosuhistogramidostupni
+),(sAVnnsr∗),(rAVnnsr∗
+28
+Procena veličine –ostale operacije•Projekcija: procenaveličineje ÕA(r)   =   V(A,r)•Agregacija: procena veličine jeG𝛾A(r)   = V(G,r)•Operacije nad skupovima–Za uniju/presekselekcijanadistomrelacijom: koristitiprocemuveličineza selekcijunpr. sq1(r) Èsq2 (r)  možebitizapisanoikaosq1 Úq2 (r)–Za operacijenadrazličitimrelacijama:procenaveličineza r Ès = size of r+ size of sprocenaveličineza r Çs  = minimum size ofrand size of sprocenaveličineza r–s = rsvetri procenemogubitipopriličnoneprecizne, alidajugornjugranicuveličine•Spoljnospajanje:procenaveličineza r ⟕s  = size of  r ⨝s  + size of rprocenaveličineza r ⟗s  = size of r ⨝s + size of r+ size of s
+29
+Procena broja različitih vrednosti –selekcija•Selekcijasq(r)–Akoqforsirada A imaodređenuvrednost: V(A, sq(r))=1–Akoqforsirada A imajednuodređenuvrednostizskupavrednosti: V(A, sq(r))=brojmogućihvrednostiu skupu–Akoje uslovqu formiA op r ondaje procena: V(A, sq(r))= V(A, r) ・s         gdeje sselektivostselekcije–U svimostalimslučajevima: koristitipribližnuprocenumin(V(A, r), nsq(r))
+30
+Procena broja različitih vrednosti –spajanje•Spajanjer ⨝s–Akosusviatributiu Aizrelacijerondaje procenaV(A, r ⨝s)=min(V(A, r), nr ⨝s)–AkoA sadržiatributeA1 izrelacijer, kaoiatributeA2 izrelacijesondaje procenaV(A, r ⨝s)= min(V(A1,r)*V(A2 –A1,s), V(A1 –A2,r)*V(A2,s), nr ⨝s)
+31
+Procena broja različitih vrednosti –ostale operacije•Projekcija: procenaje istakaoiÕA (r)•Istaprocenavažiiza atributepo kojimase vršigrupisanjeu agregaciji•Procenaza agregiranevrednosti:–Za min(A) imax(A) procenajemin(V(A, r), V(G, r)) gdeG označavaatributepo kojimavršigrupisanje–Za sveostaleagregatnefunkcije, pretpostavitida susvevrednostirazličitedakle, koristitiV(G, r)
+32
+Određivanje cene upita –primer•Nekaje data relacionašema:Katedra (SifD, Naziv)Predmet (SifP, Naziv)Profesor (SifP, Ime, SifD)Predaje (SifPro, SifPre, Semestar)•Nekaje datupit:SELECT P. I m eFROM ProfesorP , PredajeTWHERE P. S i f P= T.SifProAND P. S i f D=’RTI’ AND T.Semestar=’L1994’;•Nekasupoznatesledećeinformacije:nProfesor=1000, bProfesor= 200, Hash (SifP), B+depth=2(SifD)nKatedra=50nPredaje=10000, bPredaje= 1000, V(Semestar, Profesor)=4, B+depth=2(Semestar), Hash(SifPro)•Nekaje poznatoda je veličinabaferau memorijiM=52 stranica
+33
+Određivanje cene upita –primer•Ekvivalentaniskazrelacionealgebra (1)ÕIme(sSifD=”RTI” ÙSemestar=“L1994” (Profesor⨝Predaje))
+Plan evaluacije1:•Spajanje: blokugnježdenapetlja–Profesorspoljna, Predajeunutrašnjapetlja•Selekcijaipriojekcija: skeniranjeredovadobijenihu međurezultatunakonspajanja•Cena spajanja: bProfesor+ ⎡bProfesor/ (M-2)⎤⋅bPredaje= 200 + 4 ⋅1000 = 4200 stranica•Cena selekcije i projekcija: Pipelining, te je cena 0.•Ukupna cena: 4200
+
+34
+Određivanje cene upita –primer•Ekvivalentaniskazrelacionealgebra (2) -parcijalnopotisnutaselekcijaÕIme(sSemestar=“L1994” (sSifD=”RTI” (Profesor))⨝Predaje))
+Plan evaluacije2 :•Selekcija1: Access path upotrebaindeksaB+stablanadSifD•Spajanje: IndeksiranaugnježdenapetljakoristećiindeksHash nadSifPro•Selekcija2: skeniranjeredovadobijenihu međurezultatunakonspajanja•Cena selekcije: h=2, pretpostavkada suunutrašnjičvoroviu memoriji, ondaje h=1V(SifD, sSifD=”RTI” (Profesor))= brojmogućihvrednosti(1000 profesora, 50 katedri) = 20fProfesor= nProfesor/bProfesor= 5, dakleza 20 je potrebnodohvatiti4 straniceza selekcijuukupno: 4+2=6•Cena spajanja: Spoljna petlja po selektovanim profesorima, unutrašnja pristup indeksomsvih 4 stranica spoljne petlje mogu biti u memoriji1,2・V(SifD, sSifD=”RTI” (Profesor)+ V(SifD, sSifD=”RTI” (Profesor))・nPredaje/ V(SifPro, (Predaje))gdeje nPredaje/V(SifPro, (Predaje)= 10000 / 1000 = 10 odnosno, svakomprofesoruodgovara10 redovau Predaje)dakle, dobijase 1,2・20 + 20・10 = 224 (1,2 je constza hash, da bi se došlo do ulaza u indeks)•Cena selekcije: Pipelining, te je cena 0.•Ukupna cena: 6+224+0=230
+
+35
+Određivanje cene upita –primer•Plan evalucije1 (bez potiskivanjaselekcijeiprojekcije): 4200•Plan evaluacije2 (delimičnopotisnutaselekcija): 230•Plan evaluacije3 (potpunopotisnutaselekcija): ?

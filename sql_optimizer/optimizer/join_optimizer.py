@@ -42,13 +42,17 @@ def best_join_plan(
     """Choose the lowest-cost join algorithm for a pair of relations."""
     candidates: list[JoinPlan] = []
 
-    # ── NL join ──────────────────────────────────────────────────────────────
+    # ── NL join (try both directions — cost is asymmetric) ────────────────────
     nl_cost = ce.cost_nested_loop_join(left.n_rows, right.n_blocks, left.n_blocks)
     candidates.append(_make_plan(left, right, "Nested Loop Join", nl_cost, None, join_condition, schema, buffer_size))
+    nl_cost_rev = ce.cost_nested_loop_join(right.n_rows, left.n_blocks, right.n_blocks)
+    candidates.append(_make_plan(right, left, "Nested Loop Join", nl_cost_rev, None, join_condition, schema, buffer_size))
 
-    # ── Block NL join ─────────────────────────────────────────────────────────
+    # ── Block NL join (try both directions — smaller relation as outer is cheaper) ─
     bnl_cost = ce.cost_block_nested_loop_join(left.n_blocks, right.n_blocks, buffer_size)
     candidates.append(_make_plan(left, right, "Block Nested Loop Join", bnl_cost, None, join_condition, schema, buffer_size))
+    bnl_cost_rev = ce.cost_block_nested_loop_join(right.n_blocks, left.n_blocks, buffer_size)
+    candidates.append(_make_plan(right, left, "Block Nested Loop Join", bnl_cost_rev, None, join_condition, schema, buffer_size))
 
     # ── Indexed NL join ───────────────────────────────────────────────────────
     if join_condition:
@@ -58,9 +62,11 @@ def best_join_plan(
             indexes = inner_table.get_indexes_for(inner_attr)
             if indexes:
                 idx = _best_index(indexes)
+                v_inner = _n_distinct(inner_attr, inner_table.name, schema) or inner_table.n_rows
+                n_matching = max(1, inner_table.n_rows // v_inner)
                 inl_cost = ce.cost_index_nested_loop_join(
                     left.n_blocks, left.n_rows, idx,
-                    inner_table.n_rows, inner_table.n_blocks
+                    inner_table.n_rows, inner_table.n_blocks, n_matching
                 )
                 candidates.append(_make_plan(
                     left, right, "Index Nested Loop Join", inl_cost,
@@ -73,9 +79,11 @@ def best_join_plan(
             indexes_rev = inner_table_rev.get_indexes_for(inner_attr_rev)
             if indexes_rev:
                 idx_rev = _best_index(indexes_rev)
+                v_rev = _n_distinct(inner_attr_rev, inner_table_rev.name, schema) or inner_table_rev.n_rows
+                n_matching_rev = max(1, inner_table_rev.n_rows // v_rev)
                 inl_cost_rev = ce.cost_index_nested_loop_join(
                     right.n_blocks, right.n_rows, idx_rev,
-                    inner_table_rev.n_rows, inner_table_rev.n_blocks
+                    inner_table_rev.n_rows, inner_table_rev.n_blocks, n_matching_rev
                 )
                 candidates.append(_make_plan(
                     right, left, "Index Nested Loop Join (reversed)", inl_cost_rev,
@@ -175,10 +183,10 @@ def _estimate_join_result(
             left.n_rows, right.n_rows, left.row_size, right.row_size
         )
     else:
-        left_attr  = _attr_name(condition.left)
-        right_attr = _attr_name(condition.right)
-        v_left  = _n_distinct(left_attr,  left.label,  schema) or left.n_rows
-        v_right = _n_distinct(right_attr, right.label, schema) or right.n_rows
+        # Map each condition attribute to the relation it actually belongs to,
+        # so the estimate is independent of join direction (left/right swap).
+        v_left  = _join_v(left.label,  condition, schema) or left.n_rows
+        v_right = _join_v(right.label, condition, schema) or right.n_rows
         est_rows, est_blocks = se.estimate_join(
             left.n_rows, left.n_blocks,
             right.n_rows, right.n_blocks,
@@ -247,6 +255,18 @@ def _n_distinct(attr: str, label: str, schema: Schema) -> Optional[int]:
             a = t.get_attribute(attr)
             if a:
                 return a.n_distinct
+    return None
+
+
+def _join_v(label: str, condition: Condition, schema: Schema) -> Optional[int]:
+    """
+    V of the join attribute for the relation identified by `label`, regardless
+    of which side of the condition it appears on. Direction-independent.
+    """
+    for ref in (condition.left, condition.right):
+        v = _n_distinct(_attr_name(ref), label, schema)
+        if v is not None:
+            return v
     return None
 
 

@@ -24,6 +24,11 @@ def parse_sql(query: str) -> ParsedQuery:
     conditions  = _parse_where(where_part, all_refs) if where_part else []
     order_by    = order_part.strip() if order_part else None
 
+    # Strip a trailing sort direction (ASC/DESC) — it does not affect the sort
+    # cost and must not be treated as part of the attribute name.
+    if order_by:
+        order_by = re.sub(r"\s+(ASC|DESC)$", "", order_by, flags=re.IGNORECASE).strip()
+
     # Resolve aliases in SELECT and ORDER BY back to table.attr form
     select_cols = [_resolve_ref(col, alias_map) for col in select_cols]
     if order_by:

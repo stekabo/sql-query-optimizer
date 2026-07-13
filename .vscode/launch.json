@@ -2,6 +2,42 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "MOJ PRIMJER",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--schema", "data/primer_ulaza.json",
+                "--buffer", "10",
+                "--query", "SELECT Student.ime, Student.prosek, Stipendija.tip, Stipendija.iznos FROM Student, Stipendija WHERE Student.smer = 'SI' AND Student.prosek >= 9.0 AND Student.indeks = Stipendija.studentIndeks ORDER BY Student.prosek DESC"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Javni test - primer ulaza",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--schema", "data/primer_ulaza.json",
+                "--buffer", "10",
+                "--query", "SELECT s.ime, i.ocena FROM Student s, Ispit i WHERE s.indeks = i.studentIndeks AND i.ocena >= 9"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Javni test - primer ulaza LIMA",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--schema", "data/primer_ulaza.json",
+                "--buffer", "10",
+                "--query", "SELECT Student.ime, Predmet.naziv, Ispit.ocena, Stipendija.iznos FROM Student, Ispit, Predmet, Stipendija WHERE Student.smer = 'RTI' AND Ispit.ocena >= 9 AND Stipendija.tip = 'drzavna' AND Student.indeks = Ispit.studentIndeks AND Ispit.predmetId = Predmet.predmetId AND Student.indeks = Stipendija.studentIndeks ORDER BY Student.ime"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
             "name": "1 tabela — selekcija po B+ indeksu",
             "type": "debugpy",
             "request": "launch",
@@ -108,7 +144,7 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "TEST 2 — B+ non-clustering equality  [ocekivano: h+n_match = 2+10 = 12]",
+            "name": "TEST 2 — jednakost A7: B+ (h+n=12) skuplji od skena → Linear scan = 10",
             "type": "debugpy", "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "args": ["--schema", "data/test_clean_schema.json", "--buffer", "10",
@@ -116,7 +152,7 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "TEST 3 — Hash non-clustering equality  [ocekivano: 1+n_match = 1+20 = 21]",
+            "name": "TEST 3 — jednakost A7: Hash (1+n=21) skuplji od skena → Linear scan = 10",
             "type": "debugpy", "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "args": ["--schema", "data/test_clean_schema.json", "--buffer", "10",
@@ -124,7 +160,7 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "TEST 4 — B+ non-clustering range  [ocekivano: h+est_rows = 2+10 = 12]",
+            "name": "TEST 4 — opseg (strogo n_r/2=50): B+ (h+50=52) skuplji od skena → Linear scan = 10",
             "type": "debugpy", "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "args": ["--schema", "data/test_clean_schema.json", "--buffer", "10",
@@ -132,7 +168,7 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "TEST 5 — Join (sel+BNL)  [ocekivano: sel=12, BNL=1+ceil(1/8)*100=101, ukupno=113]",
+            "name": "TEST 5 — Join (sel A7=10 linear + BNL=101, ukupno=111)",
             "type": "debugpy", "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "args": ["--schema", "data/test_clean_schema.json", "--buffer", "10",

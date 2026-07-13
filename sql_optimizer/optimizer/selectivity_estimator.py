@@ -28,14 +28,17 @@ def estimate_range_selection(
     n_rows: int, n_blocks: int, n_distinct: Optional[int] = None
 ) -> tuple[int, int]:
     """
-    Range predicate selectivity.
-    If n_distinct is known: use 1/V(A,r).
-    Otherwise: default c = nr/2 (BP2-6 slide 25).
+    Range predicate selectivity ("Optimizacija upita", str. 25).
+
+    With min(A,r)/max(A,r): c = nr * (v - min) / (max - min).
+    With histograms: more precise.
+    In the ABSENCE of statistics (our schema stores neither min/max nor
+    histograms): c = nr / 2.
+
+    V(A,r) (n_distinct) is the equality-selectivity statistic and is NOT a
+    valid range estimate per the lecture, so it is intentionally not used.
     """
-    if n_distinct and n_distinct > 0:
-        est_rows = max(1, n_rows // n_distinct)
-    else:
-        est_rows = max(1, n_rows // 2)
+    est_rows = max(1, n_rows // 2)
     blocking_factor = max(1, n_rows // n_blocks) if n_blocks > 0 else 1
     est_blocks = max(1, math.ceil(est_rows / blocking_factor))
     return est_rows, est_blocks

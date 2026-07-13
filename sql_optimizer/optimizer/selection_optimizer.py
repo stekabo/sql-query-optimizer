@@ -59,31 +59,35 @@ def _equality_plan(table: Table, condition: Condition) -> SelectionPlan:
     btree_nonclustering = [i for i in indexes if i.index_type == IndexType.BTREE and not i.is_clustering]
     hash_indexes        = [i for i in indexes if i.index_type == IndexType.HASH]
 
+    # ── Best available index access path (A2–A6) ──────────────────────────────
+    idx_cost: Optional[int] = None
+    idx_algo: Optional[str] = None
     if btree_clustering:
         h = btree_clustering[0].height or 3
-        cost = ce.cost_btree_equality_clustering(h, est_blocks)
-        return SelectionPlan(str(condition), "B+ Tree (clustering) equality seek",
-                             cost, attr, est_rows, est_blocks)
-
-    if hash_indexes:
+        idx_cost = ce.cost_btree_equality_clustering(h, est_blocks)
+        idx_algo = "B+ Tree (clustering) equality seek"
+    elif hash_indexes:
         is_clust = hash_indexes[0].is_clustering
-        cost = ce.cost_hash_equality(is_clustering=is_clust, n_matching=est_rows)
-        algo = "Hash index equality lookup" if is_clust else "Hash index equality lookup (non-clustering)"
-        return SelectionPlan(str(condition), algo, cost, attr, est_rows, est_blocks)
-
-    if btree_nonclustering:
+        idx_cost = ce.cost_hash_equality(is_clustering=is_clust, n_matching=est_rows)
+        idx_algo = "Hash index equality lookup" if is_clust else "Hash index equality lookup (non-clustering)"
+    elif btree_nonclustering:
         h = btree_nonclustering[0].height or 3
-        cost = ce.cost_btree_equality_nonclustering(h, est_rows)
-        return SelectionPlan(str(condition), "B+ Tree (non-clustering) equality seek",
-                             cost, attr, est_rows, est_blocks)
+        idx_cost = ce.cost_btree_equality_nonclustering(h, est_rows)
+        idx_algo = "B+ Tree (non-clustering) equality seek"
 
+    # ── Linear scan (A1): br/2 if searching by a unique key, else br ───────────
     if is_unique:
-        cost = ce.cost_linear_scan_equality(table.n_blocks)
-        algo = "Linear scan (equality, unique attribute)"
+        linear_cost = ce.cost_linear_scan_equality(table.n_blocks)
+        linear_algo = "Linear scan (equality, unique attribute)"
     else:
-        cost = ce.cost_linear_scan(table.n_blocks)
-        algo = "Linear scan (equality)"
-    return SelectionPlan(str(condition), algo, cost, None, est_rows, est_blocks)
+        linear_cost = ce.cost_linear_scan(table.n_blocks)
+        linear_algo = "Linear scan (equality)"
+
+    # ── A7 ("Obrada upita", str. 8): choose the cheapest access path. A secondary
+    #     index does one I/O per matching row, so a full scan can be cheaper. ──
+    if idx_cost is not None and idx_cost <= linear_cost:
+        return SelectionPlan(str(condition), idx_algo, idx_cost, attr, est_rows, est_blocks)
+    return SelectionPlan(str(condition), linear_algo, linear_cost, None, est_rows, est_blocks)
 
 
 def _range_plan(table: Table, condition: Condition) -> SelectionPlan:
@@ -100,12 +104,19 @@ def _range_plan(table: Table, condition: Condition) -> SelectionPlan:
         h = idx.height or 3
         if idx.is_clustering:
             # Cost = h (tree traversal) + estimated matching blocks (not br/2)
-            cost = h + est_blocks
-            algo = "B+ Tree (clustering) range scan"
+            idx_cost = h + est_blocks
+            idx_algo = "B+ Tree (clustering) range scan"
         else:
-            cost = ce.cost_btree_range_nonclustering(h, est_rows)
-            algo = "B+ Tree (non-clustering) range scan"
-        return SelectionPlan(str(condition), algo, cost, attr, est_rows, est_blocks)
+            idx_cost = ce.cost_btree_range_nonclustering(h, est_rows)
+            idx_algo = "B+ Tree (non-clustering) range scan"
+
+        # A6 ("Obrada upita", str. 7): a secondary/index range scan does one I/O
+        # per matching row, so a full linear scan can be cheaper. Pick the lower.
+        linear_cost = ce.cost_linear_scan(table.n_blocks)
+        if idx_cost <= linear_cost:
+            return SelectionPlan(str(condition), idx_algo, idx_cost, attr, est_rows, est_blocks)
+        return SelectionPlan(str(condition), "Linear scan (range, cheaper than index)",
+                             linear_cost, None, est_rows, est_blocks)
 
     cost = ce.cost_linear_scan(table.n_blocks)
     return SelectionPlan(str(condition), "Linear scan (range)", cost, None, est_rows, est_blocks)

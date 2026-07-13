@@ -68,20 +68,29 @@ def cost_block_nested_loop_join(br: int, bs: int, B: int) -> int:
     return br + chunks * bs
 
 
-def cost_index_nested_loop_join(br: int, n_outer: int, index: Index, inner_nr: int, inner_br: int) -> int:
+def cost_index_nested_loop_join(
+    br: int, n_outer: int, index: Index, inner_nr: int, inner_br: int, n_matching: int = 1
+) -> int:
     """
-    For each outer row, probe the index on the inner relation.
-    Cost = br + nr * probe_cost
+    For each outer row, probe the index on the inner relation and fetch ALL
+    matching inner rows. Cost = br + n_outer * c, where c is the cost of one
+    selection on the inner using the join attribute ("Obrada upita", str. 21).
+
+    n_matching = estimated matching inner rows per outer row = inner_nr / V(join attr).
     """
+    fr = max(1, inner_nr // inner_br) if inner_br > 0 else 1
     if index.index_type == IndexType.HASH:
-        probe = 1
+        # bucket access + fetch of matching rows (non-clustering: 1 I/O per row)
+        c = 1 if index.is_clustering else 1 + n_matching
     else:
         h = index.height if index.height else 3
         if index.is_clustering:
-            probe = h + 1
+            # matching rows stored contiguously → h + matching blocks
+            c = h + max(1, math.ceil(n_matching / fr))
         else:
-            probe = h + max(1, inner_nr // inner_br)
-    return br + n_outer * probe
+            # secondary index: one I/O per matching row (A4/A6)
+            c = h + n_matching
+    return br + n_outer * c
 
 
 def cost_merge_join(br: int, bs: int, B: int, r_sorted: bool = False, s_sorted: bool = False) -> int:

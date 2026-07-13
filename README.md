@@ -1,7 +1,5 @@
 # SQL Query Optimizer
 
-Akademski projekat iz predmeta **Baze podataka 2** — implementacija sistema za procjenu izvršavanja SQL upita u Pythonu.
-
 Sistem parsira SQL upit, vrši sintaksnu i semantičku provjeru, bira optimalni plan evaluacije i procjenjuje cijenu svakog koraka u **broju blok transfera**.
 
 ---
@@ -148,7 +146,7 @@ Cijena = 2 · br · (1 + ⌈log_{B−1}(⌈br/B⌉)⌉)
 
 ### Projekcija
 
-Eliminacija kolona bez uklanjanja duplikata — cijena jednaka jednom skeniranju međurezultata.
+Eliminacija kolona bez uklanjanja duplikata — **protočna (pipelined) operacija, cijena 0** (BP2-6, str. 33–34).
 
 ### ORDER BY
 
@@ -213,7 +211,7 @@ Sve pretpostavke sistema:
 |-------------|-------------|
 | Uniformna distribucija vrijednosti | Nema histograma; selektivnost = 1/V(A,r) |
 | Materijalizacija međurezultata | Svaki korak plana upisuje rezultat na disk |
-| Opsežne pretrage: selektivnost 1/3 | Nema statistike o rasporedu vrijednosti |
+| Opsežne pretrage: selektivnost n_r/2 | Bez min/max i histograma (BP2-6, str. 25) |
 | Blok = 4096 bajtova | Za procjenu faktora blokiranja međurezultata |
 | Heš indeks bez prekoračenja | Cijena pristupa = 1 blok transfer |
 | Projekcija bez eliminacije duplikata | Samo eliminacija kolona |

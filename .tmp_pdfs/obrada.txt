@@ -1,0 +1,159 @@
+ObradaupitaBazepodataka2
+drMiloš CVETANOVIĆ
+2
+Osnovni koraci pri obradi upita•Parsiranjeupitaiprevođenje–Parsiranjeproveravasintaksu, verifikujepostojanjerelacija–Prevođenjeu internuformu, a potomu iskazrelacionealgebre•Optimizacija•Evaluacija–Plan evaluacije(query-evaluation plan) se izvršava, a rezultatvraćaupitu
+query
+output
+query parser and
+translator
+evaluation engine
+relational-algebra
+expression
+execution plan
+optimizer
+data statistics
+about data
+3
+Osnovni koraci pri obradi upita -optimizacija•Iskazrelacionealgebra možebitiekvivalentnansavećimbrojemdrugihiskaza•Svakaoperacijarelacionealgrebremoćebitievaluiranavećimbrojrazličitihalgoritama•Anotiraniiskazrelacionealgebra koji specificirastrategijuevaluacijese nazivaplan evaluacija(evaluation-plan)–Npr. Da li koristitiindeksiliskeniratičitavurelaciju•Optimizacija: međusvimekvivalentnimplanovima, odabrationajsanajnižomcenom–Cena se procenjujenaosnovustatističkihinformacijaizkatalogabazepodataka(brojredovau tabeli, veličinaredovaitd.)–Kakomeriticenuupita(brojtransferablokova, brojpristupa)–Algoritmiza evaluacijupojedinihoperacijarelacionealgebra–Kakokombinovatialgoritmepojedinihoperacijakakobi se evaluiraočitaviskaz
+4
+Procena cene upita•Mnogifaktoridoprinosevremenuizvršavanja–Pristupdisku, CPU vreme, mrežnakomunikacija(koddistribuiranihbaza)•Cena možebitiprocenjena–Vremenuodgovora(response time) –ukupnovremepotrebnoda se vratirezultata–Ukupanutrošakresursa(resource consumption)•Vremeodgovoraje teškoproceniti, a minimizacijautroškaresursaje dobra idejanaročitou uslovimagdese izvršavavišebazanadjednimDBMS•IgnorisanjeCPU vremenazbogpojednostavljenja–Realnisistemiuzimajuu obzirCPU vreme(npr. predefisanekonstanteifaktori)–Uticajmreženaročitovažankoddistribuiranihiparalelnihbaza
+5
+Operacija selekcije-jednakost•Skeniranjedatoteke(file scan)•A1 –Linernapretraga(linear search) Skeniratisvakiblokdatotekeiproveravatisvakizapiseda li zadovoljava uslove selekcije–Cena = br blok transfera + 1 pretragabroznačava broj blokova koji čuvaju zapise relacije r–Ako je selekcija po ključnom atributu, pretraga može da staneCena = (br/2) blok transfera+ 1pretraga–Linearna pretraga može biti primenjenjabez obzira nauslov selecije, uređenosti zapisa u datoteci, dostupnosti indeksa•Primetiti da binarna pretraga nema smisla, jer zapisi nisu sekvencijalno raspoređeni,a takođe, binarna pretraga zahteva više pretraga neko upotreba indeksa
+6
+Operacija selekcije-jednakost•Skeniranjeindeksa(indexscan)–algoritam pretrage koji koristi indeks–Uslov pretrage mora biti po ključu pretrage nad kojim je indeks kreiran•A2–grupišući indeks, jednakost po ključnom atributu(clusteringindex, equalityon key) Dohvatiti jedan zapis koji zadovoljava uslov jednakosti–Cena = (hi+ 1) · (tT+ tS)hije visina b+-stabla indeksa (vrednost je 1 ako su unutrašnji čvorovi u memoriji)•A3–grupišući indeks, jednakost po ne-ključnom atributu(clusteringindex, equalityon nonkey) Dohvatiti više zapisa koji zadovoljavaju uslov jednakosti–Cena = hi· (tT+ tS) + tS+ tT· bbje broj blokova koji sadrže zapise koji zadovoljavaju uslov jednakosti•A4–sekundarni indeks, jednakost po ključnom ili ne-ključnom atributu(secondaryindex, equalityon key/non-key) Dohvatiti jedan zapis ukoliko je ključ pretrage kandidat ključ–Cena = (hi+ 1) · (tT+ tS)Dohvatiti više zapisa ukoliko ključ pretrage nije kandidat ključ–Cena = (hi+ n) · (tT+ tS)n je broj zapisa koji zadovoljavaju uslov pretrage (mogu biti u različitim blokovima!)
+7
+Operacija selekcije-poređenja•Može se implementirati selekcija poput A ≥ V ili A ≤ V koristeći –Linearno skeniranje ili indekse na dva načina (A5, A6)•A5–grupišući indeks, poređenje(clusteringindex, comparison) (relacijasortiranapo A)–Za A ≥ V koristiti indeks sa se pronađe prvi red ≥ V a potom odatle sekvencijalno skenirati relaciju–Za A ≤ V samo sekvencijalno skenirati relaciju do prvog reda koji > V, bez upotrebe indeksa•A6–sekundarni indeks, poređenje(secundaryindex, comparison)–Za A ≥ V koristiti indeks sa se pronađe prvi zapis indeksa ≥ V a potom odatle sekvencijalno skenirati indeks, da se pronađu pokazivači na zapise–Za A ≤ V samo sekvencijalno skenirati listove indeksa da se pronađu pokazivači, do prvog zapisa indeksa koji > V–U oba slučaja, dohvatiti zapise u relaciji na osnovu pokazivača–ZahtevaIO po zapisu, teje u određenimslučajevimaskeniranjecelerelacije“jeftinije”
+8
+Operacija selekcije–složene selekcije•Konjukcijaviše uslova (AND)•A7–konjukcijaselekcija upotrebom indeksa (conjuctiveselectionusingon index)–Odabrati uslove i algoritme od A1 do A7 koji imaju najmanju cenu za svaki uslov–Testirate ostale uslove nad dohvaćenimredovima•A8–konjukcijaselekcija upotrebom kompozitnog indeksa (conjuctiveselectionusingcompositeindex)–Upotrebiti kompozitni indeks ukoliko je dostupan•A9 –konjukcijaselekcija pomoću preseka identifikatora (conjuctiveselectionbyintersectionofidentifiers)–Zahteva indekse sa pokazivačima na zapise relacije–Upotrebiti odgovarajući indeks za svaki od uslova, a potom napraviti presek svih dohvaćenihskupova pokazivača na zapise relacije–Potom dohvatiti zapise relacije–Ukoliko neki od uslova nemaju odgovarajuće indekse, obaviti proveru u memoriji
+9
+Operacija selekcije–složene selekcije•Disjunkcija više uslova (OR)•A10–disjunkcija selekcija upotrebom unije identifikatora (disjunctiveselectionbyunionofidentifiers)–Primenljivo samo ako svi uslovi imaju odgovarajuće indekse,u suprotnom koristiti linearno skeniranje–Upotrebiti odgovarajući indeks za svaki od uslova, a potom napraviti uniju svih dohvaćenihskupova pokazivača na zapise relacije–Potom dohvatiti zapise relacije•Negacija (negation)–Upotrebiti linearno skeniranje–Ukoliko samo mali broj zapisa relacije zadovoljava negaciju uslova i ukolikopostoji indeks uslov, onda iskoristiti indeks za dohvatanje zapisa relacije
+10
+Skeniranje bitmap indeksom–složene selekcije•Algoritam za skeniranje bitmapindeksom (bitmapindexscan) kod PostgreSQL–Kompromis između sekundarnih indeksa i linearnog skeniranjakada broj zapisa traženih zapisa nije poznat unapred–Bitmapa sa 1 bitom po strani relacije–Koraci:1. Skeniranje indeksa da se pronađu identifikatori zapisai postave bitovi za odgovarajuće strane u bitmapi2. Linearno skeniranje dohvata samo one strane za koje je bit postavljen–Performanse:Slično skeniranju indeksa kada je samo par bitova postavljenoSlično lineranom skeniranju kada je većina bitova postavljenoNikada se ne ponaša suviše loše u poređenju sa najboljim alternativama  
+11
+Operacija sortiranja•Grupišući indeks može biti iskorišćen za čitanje relacije u sortiranom redosledu.Za slučajni, tj. random, pristup može dovesti do potrebe za jednim IO po zapisu. •Za relacije koje mogu stati u memoriju, uobičajnetehnike sortiranja (npr. quicksort)•Za relacije koje ne mogu stati u memoriju, dobar izbor je spoljno sort-mergesortiranje(tzv. spoljno sortiranje objedinjavanja)
+12
+Operacija sortiranja –spoljno sort-merge sortiranje•Neka je Mveličina dostupne memorije (izražena u broju strana)1. Kreirati sortirane delove (sortedruns). Neka je iinicijano0.Ponavljati do kraja relacije:a. Pročitati Mblokova relacije u memorijub. Sortirati blokove koji su u memorijic. Upisati sortirane podatke u Rideo, potom inkrementiratiiNeka je Nkonačna vrednost za i2. Objediniti delove (N-waymerge). Pretpostavka da je N< M.a. Koristiti Nblokova kao ulazni bafer za čuvanje delova, a 1 blok za izlazni bafer.Pročitati prvi blok svakog od delova u odgovarajući blok ulaznog baferab. Ponavljati1. Odabrati prvi zapis (u sortiranom redosledu) od svih strana u ulaznom baferu2. Upisati zapis u izlazni bafer. Ako je izlazni bafer pun, upisati ga na disk.3. Obrisati zapis iz ulaznog bafera. Ako taj blok ulaznog bafera postane prazanonda učitati naredni blok (ako postoji) iz odgovarajućeg dela u taj blok.c. Dok svi ulazni baferi ne postanu prazni 
+13
+Operacija sortiranja –spoljno sort-merge sortiranje
+g
+a   
+d   31
+c    33
+b   14
+e   16
+r   16
+d   21
+m    3
+p     2
+d     7
+a   14
+a    14
+a    19
+b    14
+c    33
+d     7
+d    21
+d    31
+e    16
+g    24
+m    3
+p     2
+r    16
+a    19
+b    14
+c    33
+d    31
+e    16
+g    24
+a    14
+d     7
+d    21
+m    3
+p     2
+r    16
+a   19
+d   31
+g   24
+b   14
+c   33
+e   16
+d   21
+m    3
+r    16
+a    14
+d     7
+p     2
+initial
+relation
+create
+runs
+merge
+pass–1
+merge
+pass–2
+runs runs
+sorted
+output
+24
+19
+14
+Operacija sortiranja –spoljno sort-merge sortiranje•Ako je N> M, onda je potrebno nekoliko prolaza objedinjavanja delova.–U svakom prolazu, kontinualna grupa od M-1delova se objedinjuje.–Svaki prolaz smanjuje broj delova za faktor od M-1, i ujedno kreira delovekoji su duži za isti taj faktor.Npr. Ako je M=11, i ako ima 90 delova, onda jedan prolaz smanjuje broj delonana 9,od kojih je svaki 10 puta veći od inicijalnog dela–Ponavljati prolaze dok se svi delovi ne objedine u jedan  
+15
+Operacija sortiranja –spoljno sort-merge sortiranje•Analiza cene (broj blok transfera):–1 blok po delu dovodi do mnogo pretrage prilikom objedinjavanjapa je zbog toga bolje koristiti bbbafer blokova za svaki od delovatako da se čita/upisuje bbblokova odjednomTime se objedinjuje ⎣M/bb ⎦-1 delova u jednom prolazu–Ukupan broj potrebnih prolaza objedinjavanja je ⎡log ⎣M/bb⎦-1(br/M)⎤gde je brbroj blokova relacije r.–Blok transferi za inicijalno kreiranje delova kao i u svakom prolazu je 2brza finalni prolaz, se ne računa cena tj. broj upisa(finalni upisi se ignorišu za sve operacije, jer se izlaz operacije može prosleditikao ulaz sledećoj operaciji u nizu bez prethodnog upisivanja na disk)Tako da je ukupan broj blok transfera za spoljno sortiranje:br(2⎡log ⎣M/bb⎦-1(br/M)⎤+ 1)
+16
+Operacija sortiranja –spoljno sort-merge sortiranje•Analiza cene (broj pretraga):–Tokom kreiranja delova: 1 pretraga za čitanje i jedna pretraga za upis svakog deladakle 2 ⎡br/M⎤–Tokom objedinjavanja delova:Potrebno je 2 ⎡br/bb ⎤pretraga za svaki prolaz objedinjavanja(izuzev za poslednji prolaz za koji se upisi ne računaju)–Tako da je ukupan broj pretragaza spoljno sortiranje:2 ⎡br/M⎤+ ⎡br/bb ⎤(2⎡log ⎣M/bb⎦-1(br/M)⎤-1)
+17
+Operacija spajanja•Nekoliko različitih algoritama za implementaciju operacije spajanja:–Spajanje ugnježdenom petljom (nested-loopjoin)–Spajanje blok ugnježdenom petljom (blocknested-loopjoin)–Spajanje indeksiranom ugnježdenom petljom (indexednested-loopjoin)–Objedinjeno spajanje (merge-join)–Hešspajanje (hash-join)•Izbor algoritma zavisi od procene cene•Primer:–Relacija studentima n=5000 zapisa sačuvanih u b=100 blokova–Relacija takesima n=10000 zapisa sačuvanih u b=400 blokova
+18
+Operacija spajanja –spajanje ugnježdenom petljom •Da bi se izračunalo teta spajanja r⋈𝛉s:for eachtuple trin rdo beginfor each tuple tsin sdo begintest pair (tr,ts) to see if they satisfy the join condition qif they do, add tr• tsto the result.endend•Pri tome se rzove spoljna relacija dok je s unutrašnja relacija spajanja•Ne zahteva postojanja indeksa i može biti upotrebljena za bilo koji tip spajanja•U najgorem slučaju, ukoliko ima dovoljno memorije da prihvati samo jedan bloksvake od relacija, onda je cena nr⋅bs+ br blok transfera i nr+ br pretraga•Ako manja relacija može u potpunosti da stane u memoriji, nju koristiti kao unutrašnjudok se time cena smanjuje na bs+ brblok transfera i 2pretrage•Ako se pretpostavi najgori slučaj dobija seako je studentspoljna relacija: 5000*400+100=2 000 100 blok transfera i 5100 pretragaako je takesspoljna relacija: 10000*100+400=1 000 400 blok transfera i 10400 pretraga•Ako se pretpostavi da manja relacija (student) staje u memoriju: 500 blok transfera•Algoritam spajanja blok ugnježdenom petljom je bolji izbor
+19
+Operacija spajanja –spajanje blok ugnježdenom petljom •Varijanta ugnježdene petlje kod koje se svaki blok unutrašnje petljeuparujesa svakim blokom spoljašnje petljefor each block Brofrdo beginfor eachblock Bsof s do beginfor eachtuple trin Br do beginfor each tuple tsin Bsdo beginCheck if (tr,ts) satisfy the join condition if they do, add tr• tsto the result.endendendend
+20
+Operacija spajanja –spajanje blok ugnježdenom petljom •U najgorem slučaju cena je: br⋅bs+ br blok transfera i 2⋅br pretragaSvaki blok u unutrašnjoj relaciji sčita se jednom za svaki blok spoljašnerelacije r•U najboljem slučaju: bs+ brblok transfera i 2pretrage•Poboljšanja za algoritme ugnježdene petlje i blok ugnježdene petlje:–Kod blok ugnježdenih petlji, se koriste M-2 bloka za smeštanjeblokova spoljašnje relacije, jedan blok za unutrašnju petlju, jedan blok za izlazCena: ⎡br / (M-2)⎤⋅bs+ brblok transfera i 2⎡br / (M-2)⎤pretraga–Ako kod ekvi-spajanja atributi formiraju ključ za unutrašnju relaciju,onda se unutrašnja petlja može završiti čim se pronađe prvo uparivanje–Skenirati unutrašnju petlju unapred i unazad naizmenično,kako bi se iskoristili blokovi koji su trenutno u baferu (ako je LRU algoritam zamene)–Koristiti indeks za unutrašnju petlju ako je dostupan 
+21
+Operacija spajanja –spajanje indeksiranom ugnježdenom petljom •Indeks pretraga može zameniti skeniranje relacije ako je–Spajanje ekvi-spajanje ili prirodno spajanje–Indeks dostupan za unutrašnju relaciju po atributu spajanja(moguće je konstruisati indeks samo zbog spajanja)•Za svaki zapis tru spoljašnjoj relaciji r, upotrebiti indeks da bi se pronašli odgovarajućizapisi u unutrašnjoj relaciji s•Najgori slučaj je ako bafer ima prostora samo jedan blok relacije rcena je: br(tT+tS) + nr⋅cGde je ccena pretrage indeksa i dohvatanja svih odgovarajućih zapisa relacije sPri tome cmože biti procenjen kao cena jedne selekcije nad relacijom skoristeći uslov spajanja•Ukoliko su indeksi dostupni po atributima spajanja u obe relacije, ri s, ondakoristiti relaciju sa manje zapisa kao spoljnu relaciju 
+22
+Operacija spajanja –spajanje indeksiranom ugnježdenom petljom •Određivanje student⋈takes, pri čemu je studentspoljašnarelacija.•Neka relacija takesima primarni B+-stablo indeks po atributu ID,a koji ima po 20 ulaza u svakom čvoru indeksa•S obzirom da takesima 10000 zapisa (u 400 blokova), visina stabla je 4,i još jedan dodatni pristup je potreban da se pronađe odgovarajući podatak•Relacija student ima 5000 zapisa (u 100 blokova)•Cena blok ugnježdenog spajanja (u najgorem slučaju):400*100+100=40100 blok transfera i još 2*100=200 pretraga •Cena indeksirane ugnježdene petlje:100+5000*5=25100 blok transfera i isto toliko pretraga 
+23
+Operacija spajanja –objedinjeno spajanje (merge-join)•Sortirati obe relacije po njihovim atributima spajanja (ako već nisu po tome sortirani)•Objediniti sortirane relacije kako bi bile spojene1. Korak spajanja je sličan fazi objedinjvanjakod sort-mergealgoritma2. Glavna razlika jeste rad sa duplikatima –svaki par sa istim vrednostimana atributima spajanja moraju biti spojeni•Može se koristiti samo za ekvi-spajanja i prirodna spajanja•Svaki blok treba da bude pročitan samo jednom(pod pretpostavkom da svi zapisi za bilo koju moguću vrednost mogu stati u memoriji)•Cena je: br+bsblok transfera i ⎡br/bb⎤+ ⎡bs/bb⎤pretraga (+ cena sortiranja relacija)gde je bbbroj blokova u baferu koji je na raspolaganju svakoj od relacija•Hibridno objedinjeno spajanja (hybridmerge-join) akoje jedna relacija sortirana, druga ima sekundarni B+-stablo indeks po atributu spajanja–Objediniti sortiranu relaciju sa ulazima u listovima B+-stabla–Sortirati rezultat po adresama zapisa nesortiranerelacije–Skenirati nesortiranurelaciju po redosledu fizičkih adresa i objedinitisa prethodnim rezultatom kako bi se adrese zamenile konkretnim zapisima   
+24
+Operacija spajanja –heš spajanje (hash-join)•Hešspajanje relacija ri sse obavlja na sledeći način:1. Particionisatirelaciju skoristeći hešfunkciju h.Dok se obavlja particionisanjerelacije, jedan blok rezervisati za potrebe izlaznog bafera2. Particionisatirelaciju rkoristeći hešfunkciju h.3. Za svaku i:a. Učitati siu memoriju i kreirati hešindeks u memoriji koristeći atribute spajanjaOvaj hešindeks koristi drugačiju hešfunkciju od prethodne (h)b. Čitati zapise iz risa diska jedan po jedan. Za svaki zapis trlocirati jedanodgovarajući zapis tsu sikoristeći hešindeks u memoriji.Kreirati izlaz kao konkatenacijunjihovih atributa.•Relacija sse naziva ulaz gradnje (buildinput), a relacija rse naziva ulaz probe (probe input)•Vrednost ni hešfunkcija hse biraju tako da svako simože da stane u memorijuTipična vrednost za nje ⎡bs/M⎤⋅fgde je faktor ftipično oko 1,2 (tzv. fudgefactor)Particije probe relacije ne moraju da stanu u memoriji•Ukoliko je broj particija nveći broja blokova Mu memoriji (rekurzivnoparticionisanje)–Umesto particionisanjana n, raditi particionisanjena M-1 particiju za relaciju s–Dalje particionisatiM-1 particije koristeći drugačiju hešfunkciju–Koristiti isti postupak particionisanjai za relaciju r–Nije potrebno ako je M> nh+1, odnosnoM > bs/M+1 , tj. M > 𝑏𝑠
+25
+Operacija spajanja –heš spajanje (hash-join)•Kod hešspajanja može doći do prelivanja (overflow) ukoliko sine staje u memoriju•Particionisanjeje iskrivljeno (skewed) koliko neke particije imaju značajno više zapisa•Rezolucija prelivanja se može sprovesti u vreme faze gradnjeParticije sise dalje particionišukoristeći drugačiju hešfunkcijuParticije rimoraju bite istim postupkom particionisane•Izbegavanje prelivanja –sprovesti particionisanjepažljivoNpr. relaciju sparticionisatina više particija, pa ih naknadno kombinovati
+26
+Operacija spajanja –heš spajanje (hash-join)•Cena hešspajanja je (ako rekurzivnoparticionisanjenije potrebno):3(br+bs)+ 4nhblok transfera i 2(⎡br/bb⎤+ ⎡bs/bb⎤) + 2nhpretragagde je bbbroj blokova u baferu koji je na raspolaganju za ulazni bafer i svaki izlazni bafer•Cena hešspajanja je (ako rekurzivnoparticionisanjenije potrebno):3(br+bs)+ 4nhblok transfera i 2(⎡br/bb⎤+ ⎡bs/bb⎤) + 2nhpretragagde je bbbroj blokova u baferu koji je na raspolaganju za ulazni bafer i svaki izlazni bafer•Cena hešspajanja je (ako je rekurzivnoparticionisanjepotrebno):2(br+bs)⎡logM/bb-1(bs/M)⎤+br+bsblok transfera i 2(⎡br/bb⎤+ ⎡bs/bb⎤)⎡logM/bb-1(bs/M)⎤pretraga•Cena hešspajanja ako čitava relacija gradnje (buildrelation) može da stane u memoriju,pa samim tim particionisanjenije potrebno: br+bsblok transfera i dve pretrage•Npr. Spajanjestudent ⋈takesPretpostaviti da je veličina bafera M=20, da je bstudent=100 i btakes=400Koristiti studentkao buildinput i u jednom prolazu je particionisatiu 5 particija,svaka veličine 20 blokovaSlično, particionisatitakesu 5 particija, svaka veličine 80 blokova (u jednom prolazu)Ukupna cena: 3(100+400)=1500 blok transfera  (zanemerano4nh)2(⎡400/3⎤+ ⎡100/3⎤)=336 pretraga (zanemareno 2nh)za baferisanjenpr. bb=3 jer M = (nh+1) ⋅bb
+27
+Operacija spajanja –kompleksna spajanja•Spajanje sa konjukcijomuslova r⋈𝛉1⋀𝛉2⋀… 𝛉ns–Koristiti ugnježdene petlje ili blok ugnježdene petlje, ili–Izračunati rezultat jednog jednostavnog spajanja r⋈𝛉isa konačni rezultat formirati proveravajući koji zapisi iz tog međurezultatazadovoljavaju preostale uslove 𝛉1⋀… ⋀𝛉i-1 ⋀𝛉i+1⋀… ⋀𝛉n•Spajanje sa disjunkcijom uslova r⋈𝛉1⋁𝛉2 ⋁… 𝛉ns–Koristiti ugnježdene petlje ili blok ugnježdene petlje, ili–Izračunati kao rezultat unije zapisa individualnih spajanja r⋈𝛉isodnosno, (r⋈𝛉1s)⋃(r⋈𝛉2s)⋃… ⋃(r⋈𝛉ns)•Spajanje po prostornim podacima–Nema jednostavnog sortiranog redosleda za prostorna spajanja–Inksiraneugnježdene petlje sa prostornim indeksima(R-stabla, k-d-B-stabla)
+28
+Operacija projekcije•Operacija projekcije–Iz svakog zapisa eliminisati nepotrebne atribute–Obaviti eliminaciju duplikata•Eliminacija duplikata može biti implementirana sortiranjem ili heširanjem–Prilikom sortiranja, duplikati će biti susedi, te treba obrisati sve sem jednog–Optimizacija: duplikati mogu biti obrisani prilikom kreiranja delove kaoi tokom međukoraka objedinjavanja u algoritmu sort-merge–Heširanje–duplikati će biti locirani u istim baketima
+29
+Operacija agregacije•Operacija agregacija može biti implementirana slično eliminaciji duplikata–Sortiranje ili heširanjedovodi zapise u odgovarajuće grupe, a potom se izračunava agregatnafunkcija nad svakom od grupa–Optimizacija: parcijalna agregacijaa. Kombinovati zapise u istoj grupi prilikom kreiranja delova i međukoraka objedinjavanja izračunavanjem parcijalnih vrednosti agregatnihfunkcijab. Za funkcije count, min, max, sum: čuvati parcijalne vrednosti na osnovu zapisa koji su do tog trenutka smešteni u grupuc. Za funkciju avg, čuvati parcijalne vrednosti za sumi count, a na kraju uraditioperaciju deljenja
+30
+Operacije unije, preseka i razlike skupova •Skupovneoperacije se mogu izračunati koristeći varijante objedinjenog spajanja nakon sortiranja (merge-join) ili hešspajanja (hash-join)•Npr. Skupovneoperacije heširanjem1. Particionisatiobe relacije koristeći istu hešfunkciju2. Obraditi svaku particiju ina sledeći način:1. Koristeći drugačiju hešfunkciju, kreirati hešindeks u memoriji nad ri2. Obraditi sina sledeći način:Za r⋃s:1. Dodati zapise iz siu hešindeks, ukoliko nisu već tamo2. Kada se završi obrada sionda dodati zapise iz hešindeksa u rezultatZa r⋂s:1. Dodati zapise iz siu rezultat, ukoliko su već u hešindeksuZa r–s:1. Za svaki zapis iz siukoliko je u hešindeksu, obrisati ga iz hešindeksa2. Kada se završi obrada sionda dodati zapise iz hešindeksa u rezultat
+31
+Operacija spoljnog spajanja (outer join)•Operacija spoljnog spajanja se može izračunati–Spajanje praćeno dodavanjem nedostajučihzapisa dopunjenih sa null–Modifikacijom algoritma spajanja•Modifikacija objedinjenog spajanja (merge-join) za izračunavanje r⋉s (levo spoljno)–Kod r⋉s nedostajući zapisi su r–𝝅R(r⋈s)–Modifikovati algoritam:Tokom objedinjavanja, za svaki zapis triz rkoji nema odgovarajući zapis u s,u rezultat dodati trdopunjen sa odgovarajućim broj null–Desno spoljno i puno spoljno spajanje se može izračunati na sličan način•Modifikacija hešspajanja (hash-join) za izračunavanje r⋉s –Ukoliko je rrelacija proberelacija, onda zapise za koje se ne pronađe odgovarajućizapis u buildrelacija s, dopuniti sa nulli staviti u izlaz–Ukoliko je rrelacije buildrelacija, tokom provera treba voditi evidenciju o tomekoji zapisi iz rimaju odgovarajuće zapise iz s. Na kraju obrade siu izlaz dodatievidentirane zapise iz rdopunjene sa null
+32
+Evaluacija celokupnih izraza•Evaluacija pojedinih operacija i evaluacija celokupnog izraza•Evaluacija celokupnog izraza ima dve opcije:  –Materijalizacija (materialization):Generisati rezultat izraza čiji su ulazi su relacije koje su prethodno izračunate,a sam rezultat snimiti (materijalizovati) na disk.–Protočna obrada (pipelining):Proslediti zapise roditeljskoj operaciji čak i dok se još uvek obavlja izračunavanje 
+33
+Evaluacija celokupnih izraza -materijalizacija•Materijalizovana evaluacija: evaluirati jednu po jednu operaciju, počev od najnižeg nivoa.Koristiti materijalizovane međurezultatekako bi se evaluirala naredna operacija.•Npr. za stablo izvršavanja iskaza 𝝅name(𝝈building=„Watson“(department) ⋈instructor)Najpre sračunati selekciju i sačuvati rezultat na disku,a potom očitati sa diska i sračunati spajanje,na kraju sračunati projekciju•Materijalizovana evaluacija: uvek moguća•Cena: cena pojedinih operacija + cena upisa međurezultatana disk•Duplo baferisanje(doublebuffering): koristiti dva izlazna bafera za svaku operaciju,kada se jena napuni, upisivati ga na disk dok se drugi izlazni bafer puničime se trošak vremena upisa na disk redukuje 
+Π
+σ
+name
+building = “Watson”
+department
+instructor
+34
+Evaluacija celokupnih izraza –protočna obrada•Protočna evaluacija: evaluirati nekoliko operacija istovremeno, prosleđujući rezultatejedne operacije drugojNpr. za stablo izvršavanja iskaza 𝝅name(𝝈building=„Watson“(department) ⋈instructor)Dok se računa selekcija, rezultat ne čuvati na disk,već odmah direktno prosleđivati spajanju.Slično, ne čuvati rezultat spjanja,već rezultat odmah prosleđivati projekciji
+•Daleko jefitnijenego materijalizovana evaluacija•Protočna evaluacija nije uvek moguća (npr. sort, hash-join)•Treba koristiti algoritme za operacije koji ne zahtevaju celokupan ulaz pre početka•Protočna evaluacije se može obaviti na dva načina:vođena potražnjom (demanddriven), vođena proizvođačem (producerdriven)
+Π
+σ
+name
+building = “Watson”
+department
+instructor
+35
+Evaluacija celokupnih izraza –protočna obrada•Evaluacija vođena potražnjom (demanddriven) je „lenja“ (lazyevaluation)–Sistem neprestano zahteva naredni zapis za potrebe operacije na najvišem nivou–Svaka operacija zahteva naredni zapis od operacije deteta po potrebi–Između poziva, operacija mora da održava „stanje“, da zna šta treba da vrati sledeće–Svaka operacija se implementira kao iteratorsa metodama (open, next, close)•Evaluacija vođena proizvođačem (producerdriven) je „revnosna“ (eagerevaluation)–Operacije proizvode zapise revnosno i prosleđuju ih operacijama roditeljaBafere postoje između operacija, tako da operacije deca dodaju zapise u bafer,a operacije roditelji uklanjaju zapise iz baferaUkoliko je bafer pun, operacija dete čeka dok se u baferu ne oslobodi prostor–Sistem pravi raspored izvršavanja operacija na osnovu informacija o prostorukoji imaju u svojim baferima izlaza, odnosno mogućnosti  obrade novih ulaza•Alternativni nazivi: pullodnosno pushmodeli protočne evaluacija
+36
+Evaluacija celokupnih izraza –protočna obrada•Neki algoritmi ne mogu generisati rezultat iako je ulaz pristigao(npr. merge-join, hash-join), međurezultatse upisuje na disk, a potom čita (materijalizacija)•Blokirajuća operacija (blockingoperation) zahteva celokupan ulaz (npr. sort, agregacija)Ukoliko blokirajuća operacija ima dve podoeracije, onda ih treba tretirati kao odvojene(npr. za sort: generisanje delova i objedinjavanje, za hash-join: particionisanjei build-probe)•Nivoi protočne evaluacija (pipelinestages):Sve operacije na istom nivou se izvršavaju konkurektnoNivo može otpočeti sa radom tek kada su svi prethodni nivoi završili•Varijante algoritama tako da mogu da generišu bar neki rezultat u letu („on thefly“)•Tokovi podataka (data streams): senzorskemreže, događaji korisnika…•Kontinualni upiti (continuousqueries):Rezultati se ažuriraju kako pristižu novi podaci(npr. agregacija nad prozorom podataka –pristiglim u nekom vremenskom periodu, ili ukoliko su razdvojeni delimiteromtzv. punctuations)  
+37
+Algoritmi svesni postojanja keš memorije (cache conscious algorithms)•Cilj: minimizirati keš promašaja, maksimalno iskoristiti podatkekoji su već u kešu kao deo keš linije•Za sortiranje:Kreirati delove koji su veliki koliko i L3 keš (nekoliko MB) kako bi se izbegao promašajtokom sortiranja delaObjediniti delove na uobičajannačin•Za hešspajanje:Najpre kreirati particije tako da build-probeparticije staju u memorijuPotom dodatno particionisatitako podparticijei indeks staju u L3 keš, čime se probefaza značajno ubrazava•Rasporediti atribute u zapisima tako da se maksimizira upotreba kešaNpr. Atributi kojima se često prostupaistovremeno trebada budu smešteni blizu jedni drugih•Koristiti više niti za paralelnu obradu upitatime će keš promašaj zaustaviti jednu nit, ali će ostale nastaviti sa radom

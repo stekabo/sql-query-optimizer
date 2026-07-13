@@ -1,6 +1,7 @@
 """
 Assembles the complete evaluation plan from parsed query + schema.
 """
+import math
 from typing import Optional
 
 from sql_optimizer.models.plan import EvaluationPlan, OperationStep
@@ -14,48 +15,100 @@ from sql_optimizer.optimizer.selection_optimizer import SelectionPlan, best_comb
 def build_plan(query: ParsedQuery, schema: Schema, buffer_size: int) -> EvaluationPlan:
     plan = EvaluationPlan(query=_format_query(query))
 
-    # ── 1. Selection on each table ────────────────────────────────────────────
+    # ── 1. Selection on each table (compute now, emit after join order) ────────
     tables = [schema.get_table(t) for t in query.table_names()]
     selection_conditions = query.selection_conditions()
+    join_conditions = query.join_conditions()
 
     intermediates: list[IntermediateResult] = []
+    table_sel_plans: list[Optional[list[SelectionPlan]]] = []
     for table in tables:
         table_conditions = _conditions_for_table(table, selection_conditions)
 
         if table_conditions:
             sel_plans = best_combined_selection(table, table_conditions)
-            for sp in sel_plans:
-                step = OperationStep(
-                    description=f"Selection on {table.name}: {sp.condition}",
-                    algorithm=sp.algorithm,
-                    cost=sp.cost,
-                    details=_selection_details(sp, table),
-                )
-                plan.steps.append(step)
-            # Use the most selective plan's output as the intermediate
-            best_sp = min(sel_plans, key=lambda p: p.est_rows)
+            # Output cardinality: conjunction of all predicates' selectivities
+            # ("Optimizacija upita", str. 26).
+            est_rows, est_blocks = _conjunctive_output(table, sel_plans)
             inter = IntermediateResult(
                 label=table.name,
-                n_rows=best_sp.est_rows,
-                n_blocks=best_sp.est_blocks,
+                n_rows=est_rows,
+                n_blocks=est_blocks,
                 attributes=[f"{table.name}.{a.name}" for a in table.attributes],
                 row_size=table.row_size(),
                 buffer_size=buffer_size,
             )
+            table_sel_plans.append(sel_plans)
         else:
             # No selection — full table
             inter = IntermediateResult.from_table(table, buffer_size)
+            table_sel_plans.append(None)
 
         intermediates.append(inter)
 
-    # ── 2. Join(s) ────────────────────────────────────────────────────────────
-    join_conditions = query.join_conditions()
+    # ── 2. Determine join order early, so selection steps know which tables are
+    # the *indexed inner* of an index nested-loop join. A selection on such a
+    # relation that cannot use an index for the join is applied as a residual
+    # DURING the index probe — pipelined, cost 0 ("Optimizacija upita", str. 34,
+    # Plan evaluacije 2: "Cena selekcije: Pipelining, te je cena 0").
+    in_memory = False
+    join_order: Optional[JoinOrder] = None
+    do_join = len(tables) > 1 and not _fits_in_memory(intermediates, buffer_size)
+    if do_join:
+        join_order = greedy_join_order(
+            tables=tables,
+            join_conditions=join_conditions,
+            schema=schema,
+            buffer_size=buffer_size,
+            base_intermediates=intermediates,
+        )
+    inl_inner_tables = _inl_inner_tables(join_order) if join_order else set()
+
+    # ── 3. Emit selection steps (order preserved: selections before joins) ─────
+    for table, sel_plans in zip(tables, table_sel_plans):
+        if sel_plans is None:
+            continue
+        cheapest = sel_plans[0]  # best_combined_selection sorts cheapest first
+        # Residual-in-INL rule: relation is the indexed inner of an INL and its
+        # cheapest access path is a linear scan (no index for this predicate) →
+        # the predicate is a pipelined residual on the rows fetched by the join.
+        pipelined_residual = (
+            table.name.lower() in inl_inner_tables and cheapest.index_used is None
+        )
+        if pipelined_residual:
+            plan.steps.append(OperationStep(
+                description=f"Selection on {table.name}: {cheapest.condition}",
+                algorithm="Residual filter during index nested-loop join (pipelined)",
+                cost=0,
+                details=(
+                    "Applied on rows fetched by the index nested-loop probe — "
+                    "pipelined, no separate scan (str. 34, Plan evaluacije 2)."
+                ),
+            ))
+        else:
+            # A7 — conjunctive selection using one index ("Obrada upita", str. 8):
+            # apply only the single cheapest access path; the remaining predicates
+            # are tested in memory on the already-fetched rows, adding no extra I/O.
+            plan.steps.append(OperationStep(
+                description=f"Selection on {table.name}: {cheapest.condition}",
+                algorithm=cheapest.algorithm,
+                cost=cheapest.cost,
+                details=_selection_details(cheapest, table),
+            ))
+        for sp in sel_plans[1:]:
+            plan.steps.append(OperationStep(
+                description=f"Selection on {table.name}: {sp.condition}",
+                algorithm="In-memory filter on already-fetched rows (conjunctive selection)",
+                cost=0,
+                details="Tested in memory on rows fetched by the cheapest access path — no additional I/O.",
+            ))
+
+    # ── 4. Join(s) ────────────────────────────────────────────────────────────
     current_result: Optional[IntermediateResult] = None
 
-    in_memory = False
     if len(tables) == 1:
         current_result = intermediates[0]
-    elif _fits_in_memory(intermediates, buffer_size):
+    elif not do_join:
         # All selected relations fit in the buffer — join and sort are free
         total_blocks = sum(i.n_blocks for i in intermediates)
         plan.steps.append(OperationStep(
@@ -70,13 +123,6 @@ def build_plan(query: ParsedQuery, schema: Schema, buffer_size: int) -> Evaluati
         in_memory = True
         current_result = _merge_intermediates(intermediates, join_conditions, schema, buffer_size)
     else:
-        join_order: JoinOrder = greedy_join_order(
-            tables=tables,
-            join_conditions=join_conditions,
-            schema=schema,
-            buffer_size=buffer_size,
-            base_intermediates=intermediates,
-        )
         for jp in join_order.steps:
             conds = _find_join_conditions_for_step(jp, join_conditions)
             if conds:
@@ -95,14 +141,15 @@ def build_plan(query: ParsedQuery, schema: Schema, buffer_size: int) -> Evaluati
         current_result = join_order.steps[-1].result
 
     # ── 3. Projection ─────────────────────────────────────────────────────────
+    # Projection (without duplicate elimination) is a non-blocking, pipelined
+    # operation: it streams tuples and eliminates columns on the fly, so it adds
+    # no I/O. "Optimizacija upita", str. 33-34: "projekcija: Pipelining, cena 0".
     if query.select != ["*"]:
-        proj_cost = 0 if in_memory else ce.cost_projection(current_result.n_blocks)
-        proj_algo = "Column elimination (in-memory, no I/O)" if in_memory else "Column elimination (no duplicate removal)"
         plan.steps.append(OperationStep(
             description=f"Projection: {', '.join(query.select)}",
-            algorithm=proj_algo,
-            cost=proj_cost,
-            details=f"Reads {current_result.n_blocks} blocks, eliminates unreferenced columns.",
+            algorithm="Column elimination (pipelined, no duplicate removal)",
+            cost=0,
+            details="Pipelined into the preceding operation — no extra I/O (str. 33-34).",
         ))
 
     # ── 4. ORDER BY ───────────────────────────────────────────────────────────
@@ -145,6 +192,45 @@ def build_plan(query: ParsedQuery, schema: Schema, buffer_size: int) -> Evaluati
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
+def _inl_inner_tables(join_order: JoinOrder) -> set[str]:
+    """
+    Names (lowercase) of tables used as the *indexed inner* relation of an index
+    nested-loop join. The join probes such a table via its base-table index, so
+    a non-index selection on it is applied as a pipelined residual (str. 34).
+    """
+    inners: set[str] = set()
+    for jp in join_order.steps:
+        if jp.index_used and "Index Nested Loop" in jp.algorithm:
+            inners.add(jp.index_used.split(".")[0].lower())
+    return inners
+
+
+def _conjunctive_output(table: Table, sel_plans: list[SelectionPlan]) -> tuple[int, int]:
+    """
+    Estimate the output size of a (possibly conjunctive) selection.
+
+    Single predicate: identical to the single-condition estimate.
+    Multiple predicates: conjunction of selectivities — nr * Π(si/nr)
+    ("Optimizacija upita", str. 26).
+    """
+    if len(sel_plans) == 1:
+        sp = sel_plans[0]
+        return sp.est_rows, sp.est_blocks
+
+    n_rows = table.n_rows
+    if n_rows <= 0:
+        return 1, 1
+
+    rows = float(n_rows)
+    for sp in sel_plans:
+        rows *= sp.est_rows / n_rows
+    est_rows = max(1, round(rows))
+
+    blocking_factor = max(1, n_rows // table.n_blocks) if table.n_blocks > 0 else 1
+    est_blocks = max(1, math.ceil(est_rows / blocking_factor))
+    return est_rows, est_blocks
+
 
 def _conditions_for_table(table: Table, conditions: list[Condition]) -> list[Condition]:
     result = []
